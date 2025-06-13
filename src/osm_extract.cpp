@@ -4,6 +4,7 @@
 #include <routingkit/timer.h>
 #include <routingkit/tag_map.h>
 #include <routingkit/id_mapper.h>
+#include <routingkit/osm_label_decoder.h>
 
 
 #include <iostream>
@@ -88,6 +89,7 @@ int main(int argc, char*argv[]){
 				return get_osm_car_direction_category(osm_way_id, way_tags, log_message);
 			},
 			nullptr,
+			extract_label_from_osm_way,
 			log_message
 		);
 
