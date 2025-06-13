@@ -4,6 +4,7 @@
 #include <routingkit/id_queue.h>
 #include <routingkit/constants.h>
 #include <routingkit/timestamp_flag.h>
+#include <routingkit/label.h>
 #include <vector>
 
 namespace RoutingKit{
@@ -19,7 +20,9 @@ public:
 		queue(first_out.size()-1),
 		first_out(&first_out),
 		tail(&tail),
-		head(&head){
+		head(&head),
+		label(nullptr),
+		profile(Label(0)) {
 		assert(!first_out.empty());
 		assert(first_out.front() == 0);
 		assert(first_out.back() == tail.size());
@@ -76,6 +79,17 @@ public:
 		return was_popped.is_set(x);
 	}
 
+	Dijkstra& set_labels(const std::vector<Label>&label){
+		this->label = &label;
+		assert(label.size() == first_out->size()-1);
+		return *this;
+	}
+
+	Dijkstra& set_profile(const Label&profile){
+		this->profile = profile;
+		return *this;
+	}
+
 	struct SettleResult{
 		unsigned node;
 		unsigned distance;
@@ -89,10 +103,18 @@ public:
 		tentative_distance[p.id] = p.key;
 		was_popped.set(p.id);
 
-		for(unsigned a=(*first_out)[p.id]; a<(*first_out)[p.id+1]; ++a){
+		unsigned arc_start = (*first_out)[p.id];
+		unsigned arc_end = (*first_out)[p.id+1];
+		for(unsigned a=arc_start; a<arc_end; ++a){
 			if(!was_popped.is_set((*head)[a])){
 				unsigned w = get_weight(a, p.key);
-				if(w < inf_weight){
+				
+				bool is_valid = w < inf_weight;
+				if(is_valid && label != nullptr){
+					is_valid = (*label)[a].is_allowed(profile.get_label());
+				}
+				
+				if(is_valid){
 					if(queue.contains_id((*head)[a])){
 						if(queue.decrease_key({(*head)[a], p.key + w})){
 							predecessor_arc[(*head)[a]] = a;
@@ -156,6 +178,9 @@ private:
 	const std::vector<unsigned>*first_out;
 	const std::vector<unsigned>*tail;
 	const std::vector<unsigned>*head;
+	const std::vector<Label>*label;
+
+	Label profile;
 };
 
 class ScalarGetWeight{

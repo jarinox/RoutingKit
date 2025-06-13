@@ -64,6 +64,7 @@ int main(int argc, char*argv[]){
 				return get_osm_car_direction_category(osm_way_id, way_tags, log_message);
 			},
 			nullptr,
+			nullptr,
 			log_message,
 			false
 		);
