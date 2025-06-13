@@ -4,6 +4,7 @@
 #include <routingkit/bit_vector.h>
 #include <routingkit/tag_map.h>
 #include <routingkit/osm_decoder.h>
+#include <routingkit/label.h>
 
 #include <vector>
 #include <functional>
@@ -77,6 +78,8 @@ struct OSMRoutingGraph{
 	std::vector<float>modelling_node_latitude;
 	std::vector<float>modelling_node_longitude;
 
+	std::vector<Label>labels;
+
 
 	unsigned node_count()const{
 		return first_out.size()-1;
@@ -108,6 +111,8 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 			std::function<void(OSMTurnRestriction)>
 		)
 	>turn_restriction_decoder,
+
+	std::function<Label(const TagMap&)>label_decoder,
 
 	std::function<void(const std::string&)>log_message = nullptr,
 
