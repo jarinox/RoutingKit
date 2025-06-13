@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include <string>
+#include <routingkit/label.h>
 
 namespace RoutingKit{
 
@@ -14,6 +15,7 @@ struct SimpleOSMCarRoutingGraph{
 	std::vector<unsigned>geo_distance;
 	std::vector<float>latitude;
 	std::vector<float>longitude;
+	std::vector<Label>label;
 	std::vector<unsigned>forbidden_turn_from_arc;
 	std::vector<unsigned>forbidden_turn_to_arc;
 
@@ -88,6 +90,39 @@ SimpleOSMBicycleRoutingGraph simple_load_osm_bicycle_routing_graph_from_pbf(
 // file that uses the bicycle routing graph.
 unsigned char get_min_bicycle_comfort_level();
 unsigned char get_max_bicycle_comfort_level();
+
+// Multi-profile routing graph that contains edges for all vehicle types
+struct SimpleOSMMultiProfileRoutingGraph{
+	std::vector<unsigned>first_out;
+	std::vector<unsigned>head;
+	std::vector<unsigned>geo_distance;
+	std::vector<float>latitude;
+	std::vector<float>longitude;
+	std::vector<Label>label;
+	
+	// Multi-profile specific data
+	std::vector<unsigned>travel_time; // Only meaningful for car routes
+	std::vector<unsigned char>bicycle_comfort_level; // Only meaningful for bicycle routes
+	
+	// Turn restrictions (primarily for cars)
+	std::vector<unsigned>forbidden_turn_from_arc;
+	std::vector<unsigned>forbidden_turn_to_arc;
+
+	unsigned node_count() const {
+		return first_out.size()-1;
+	}
+
+	unsigned arc_count() const{
+		return head.size();
+	}
+};
+
+SimpleOSMMultiProfileRoutingGraph simple_load_osm_multi_profile_routing_graph_from_pbf(
+	const std::string&pbf_file,
+	const std::function<void(const std::string&)>&log_message = nullptr,
+	bool all_modelling_nodes_are_routing_nodes = false,
+	bool file_is_ordered_even_though_file_header_says_that_it_is_unordered = false
+);
 
 } // RoutingKit
 
