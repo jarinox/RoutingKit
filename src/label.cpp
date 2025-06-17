@@ -24,8 +24,8 @@ bool Label::operator!=(const Label& other) const {
 * Checks if the label is allowed under the given restriction.
 * The label is allowed if the disjunction of the labels and the restrictions is empty.
 */
-bool Label::is_allowed(uint64_t restriction) const {
-    return (label & restriction) == 0;
+bool Label::is_allowed(Label& restriction) const {
+    return (label & restriction.label) == 0;
 }
 
 void Label::set_bit(bool bit, unsigned bit_position) {

@@ -31,16 +31,16 @@ int main(){
     restrictions.set_bit(true, BIKE);
 
     // Check if the label matches the restrictions
-    EXPECT(l1.is_allowed(restrictions.get_label()) == true);
+    EXPECT(l1.is_allowed(restrictions) == true);
 
     // Set the road restriction to prohibit BIKE and allow CAR
     l1.set_bit(true, BIKE);
     l1.set_bit(false, CAR);
 
     // Now the label should not match the restrictions
-    EXPECT(l1.is_allowed(restrictions.get_label()) == false);
+    EXPECT(l1.is_allowed(restrictions) == false);
 
-    EXPECT(l1.is_allowed(l1.get_label()) == false);
+    EXPECT(l1.is_allowed(l1) == false);
 
 
     // Subset and superset checks

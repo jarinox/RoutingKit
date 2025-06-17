@@ -55,7 +55,7 @@ int main(int argc, char*argv[]){
 
 		bool from_is_allowed = false;
 		for(unsigned arc = graph.first_out[from]; arc < graph.first_out[from+1]; ++arc) {
-			if(graph.label[arc].is_allowed(profile.get_label())) {
+			if(graph.label[arc].is_allowed(profile)) {
 				from_is_allowed = true;
 				break;
 			}

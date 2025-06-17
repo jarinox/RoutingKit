@@ -14,7 +14,7 @@ public:
     void set_label(uint64_t new_label);
     bool operator==(const Label& other) const;
     bool operator!=(const Label& other) const;
-    bool is_allowed(uint64_t restriction) const;
+    bool is_allowed(Label& restriction) const;
     bool is_subset_of(const Label& other) const;
     bool is_superset_of(const Label& other) const;
     void set_bit(bool bit, unsigned bit_position);

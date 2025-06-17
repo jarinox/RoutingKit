@@ -111,7 +111,7 @@ public:
 				
 				bool is_valid = w < inf_weight;
 				if(is_valid && label != nullptr){
-					is_valid = (*label)[a].is_allowed(profile.get_label());
+					is_valid = (*label)[a].is_allowed(profile);
 				}
 				
 				if(is_valid){
