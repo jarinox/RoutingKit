@@ -17,6 +17,8 @@ public:
     bool is_allowed(Label& restriction) const;
     bool is_subset_of(const Label& other) const;
     bool is_superset_of(const Label& other) const;
+    Label unite(const Label& other) const;
+    Label intersect(const Label& other) const;
     void set_bit(bool bit, unsigned bit_position);
     bool get_bit(unsigned bit_position) const;
 };

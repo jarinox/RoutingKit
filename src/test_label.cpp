@@ -69,6 +69,18 @@ int main(){
     EXPECT(l2.is_superset_of(l3) == true);
     EXPECT(l3.is_superset_of(l2) == false);
     
+    // Union and intersection checks
+    Label l4 = l2.unite(l3);
+    EXPECT(l4.get_bit(CAR) == true);
+    EXPECT(l4.get_bit(BUS) == true);
+    EXPECT(l4.get_bit(BIKE) == true);
+    EXPECT(l4.get_bit(PEDESTRIAN) == false);
+
+    Label l5 = l2.intersect(l3);
+    EXPECT(l5.get_bit(CAR) == true);
+    EXPECT(l5.get_bit(BUS) == true);
+    EXPECT(l5.get_bit(BIKE) == false);
+    EXPECT(l5.get_bit(PEDESTRIAN) == false);
 
 	return expect_failed;
 }

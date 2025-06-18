@@ -53,3 +53,10 @@ bool Label::is_subset_of(const Label& other) const {
 bool Label::is_superset_of(const Label& other) const {
     return other.is_subset_of(*this);
 }
+
+Label Label::unite(const Label& other) const {
+    return Label(label | other.label);
+}
+Label Label::intersect(const Label& other) const {
+    return Label(label & other.label);
+}
