@@ -13,6 +13,15 @@
 
 namespace RoutingKit{
 
+class OSMLabelRestrictedDirections{
+public:
+	OSMLabelRestrictedDirections() = default;
+	OSMLabelRestrictedDirections(const OSMWayDirectionCategory, unsigned label_index);
+
+	Label forward;
+	Label backward;
+};
+
 struct OSMRoutingIDMapping{
 	BitVector is_modelling_node;
 	BitVector is_routing_node;
@@ -97,6 +106,37 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 
 	std::function<
 		OSMWayDirectionCategory(
+			uint64_t osm_way_id,
+			unsigned routing_way_id,
+			const TagMap&way_tags
+		)
+	>way_callback,
+
+	std::function<
+		void(
+			uint64_t osm_relation_id,
+			const std::vector<OSMRelationMember>&member_list,
+			const TagMap&tags,
+			std::function<void(OSMTurnRestriction)>
+		)
+	>turn_restriction_decoder,
+
+	std::function<Label(const TagMap&)>label_decoder,
+
+	std::function<void(const std::string&)>log_message = nullptr,
+
+	bool file_is_ordered_even_though_file_header_says_that_it_is_unordered = false,
+
+	OSMRoadGeometry geometry_to_be_extracted = OSMRoadGeometry::none
+);
+
+OSMRoutingGraph load_osm_routing_graph_from_pbf(
+	const std::string&pbf_file,
+
+	const OSMRoutingIDMapping&mapping,
+
+	std::function<
+		OSMLabelRestrictedDirections(
 			uint64_t osm_way_id,
 			unsigned routing_way_id,
 			const TagMap&way_tags

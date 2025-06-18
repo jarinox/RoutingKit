@@ -18,6 +18,33 @@
 
 namespace RoutingKit{
 
+OSMLabelRestrictedDirections::OSMLabelRestrictedDirections(
+	OSMWayDirectionCategory direction_category,
+	unsigned label_index
+){
+	forward = Label(0);
+	backward = Label(0);
+	
+	switch(direction_category){
+		case OSMWayDirectionCategory::open_in_both:
+			forward.set_bit(false, label_index);
+			backward.set_bit(false, label_index);
+			break;
+		case OSMWayDirectionCategory::only_open_forwards:
+			forward.set_bit(false, label_index);
+			backward.set_bit(true, label_index);
+			break;
+		case OSMWayDirectionCategory::only_open_backwards:
+			forward.set_bit(true, label_index);
+			backward.set_bit(false, label_index);
+			break;
+		case OSMWayDirectionCategory::closed:
+			forward.set_bit(true, label_index);
+			backward.set_bit(true, label_index);
+			break;
+	}
+}
+
 OSMRoutingIDMapping load_osm_id_mapping_from_pbf(
 	const std::string&file_name,
 	std::function<bool(uint64_t, const TagMap&)>is_routing_node,
@@ -130,10 +157,43 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 	bool file_is_ordered_even_though_file_header_says_that_it_is_unordered,
 	OSMRoadGeometry geometry_to_be_extracted
 ){
+	return load_osm_routing_graph_from_pbf(
+		pbf_file,
+		mapping,
+		[&](uint64_t osm_way_id, unsigned routing_way_id, const TagMap&way_tags){
+			auto direction_category = way_callback(osm_way_id, routing_way_id, way_tags);
+			return OSMLabelRestrictedDirections(direction_category, 0);
+		},
+		turn_restriction_decoder,
+		label_decoder,
+		log_message,
+		file_is_ordered_even_though_file_header_says_that_it_is_unordered,
+		geometry_to_be_extracted
+		
+	);
+}
+
+OSMRoutingGraph load_osm_routing_graph_from_pbf(
+	const std::string&pbf_file,
+	const OSMRoutingIDMapping&mapping,
+	std::function<OSMLabelRestrictedDirections(uint64_t, unsigned, const TagMap&)>way_callback,
+	std::function<
+		void(
+			uint64_t osm_relation_id,
+			const std::vector<OSMRelationMember>&member_list,
+			const TagMap&tags,
+			std::function<void(OSMTurnRestriction)>
+		)
+	>turn_restriction_decoder,
+	std::function<Label(const TagMap&)>label_decoder,
+	std::function<void(const std::string&)>log_message,
+	bool file_is_ordered_even_though_file_header_says_that_it_is_unordered,
+	OSMRoadGeometry geometry_to_be_extracted
+){
 	assert((mapping.is_modelling_node | mapping.is_routing_node) == mapping.is_modelling_node);
 
 	if(!way_callback){
-		way_callback = [](uint64_t, unsigned, const TagMap&){ return OSMWayDirectionCategory::open_in_both; };
+		way_callback = [](uint64_t, unsigned, const TagMap&){ return OSMLabelRestrictedDirections(OSMWayDirectionCategory::open_in_both, 0); };
 	}
 
 	if(label_decoder == nullptr){
@@ -238,8 +298,8 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 		[&](uint64_t osm_way_id, const std::vector<std::uint64_t> & node_list, const TagMap&tags) {
 			unsigned routing_way_id = routing_way.to_local(osm_way_id, invalid_id);
 			if(routing_way_id != invalid_id){
-				OSMWayDirectionCategory dir = way_callback(osm_way_id, routing_way_id, tags);
-				if(dir != OSMWayDirectionCategory::closed){
+				OSMLabelRestrictedDirections dir = way_callback(osm_way_id, routing_way_id, tags);
+				if(!(dir.forward.get_label() == 0 && dir.backward.get_label() == 0)){
 					unsigned modelling_id_of_previous_modelling_node = modelling_node.to_local(node_list[0]);
 					unsigned routing_id_of_last_routing_node = routing_node.to_local(node_list[0]);
 
@@ -268,21 +328,23 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 							}
 
 							Label label = label_decoder(tags);
+							
+							if(dir.forward.get_label() != 0){
+								on_new_arc(
+									routing_id_of_last_routing_node, routing_id_of_current_node,
+									dist_since_last_routing_node, routing_way_id, false,
+									modelling_node_latitude, modelling_node_longitude, dir.forward
+								);
+							}
 
-							switch(dir){
-							case OSMWayDirectionCategory::only_open_forwards:
-								on_new_arc(routing_id_of_last_routing_node, routing_id_of_current_node, dist_since_last_routing_node, routing_way_id, false, modelling_node_latitude, modelling_node_longitude, label);
-								break;
-							case OSMWayDirectionCategory::open_in_both:
-								on_new_arc(routing_id_of_last_routing_node, routing_id_of_current_node, dist_since_last_routing_node, routing_way_id, false, modelling_node_latitude, modelling_node_longitude, label);
-								// no break
-							case OSMWayDirectionCategory::only_open_backwards:
+							if(dir.backward.get_label() != 0){
 								std::reverse(modelling_node_latitude.begin(), modelling_node_latitude.end());
 								std::reverse(modelling_node_longitude.begin(), modelling_node_longitude.end());
-								on_new_arc(routing_id_of_current_node, routing_id_of_last_routing_node, dist_since_last_routing_node, routing_way_id, true, modelling_node_latitude, modelling_node_longitude, label);
-								break;
-							default:
-								assert(false);
+								on_new_arc(
+									routing_id_of_current_node, routing_id_of_last_routing_node,
+									dist_since_last_routing_node, routing_way_id, true,
+									modelling_node_latitude, modelling_node_longitude, dir.backward
+								);
 							}
 
 							dist_since_last_routing_node = 0;

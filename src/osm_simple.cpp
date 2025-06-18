@@ -183,13 +183,50 @@ SimpleOSMMultiProfileRoutingGraph simple_load_osm_multi_profile_routing_graph_fr
 	std::vector<unsigned char>way_bicycle_comfort(routing_way_count);
 
 
-	auto multi_profile_way_callback = [&](uint64_t osm_way_id, unsigned routing_way_id, const TagMap&tags) -> OSMWayDirectionCategory {
+	auto multi_profile_way_callback = [&](uint64_t osm_way_id, unsigned routing_way_id, const TagMap&tags) -> OSMLabelRestrictedDirections {
 		// Vehicle permissions for this way
+
 		Label label = extract_label_from_osm_way(tags);
 		bool is_car_allowed = !label.get_bit(CAR);
 		bool is_bicycle_allowed = !label.get_bit(BICYCLE);
 		bool is_pedestrian_allowed = !label.get_bit(PEDESTRIAN);
-		
+
+		OSMLabelRestrictedDirections restricted_directions = OSMLabelRestrictedDirections();
+		// Default to disallow all vehicles
+		// Labels are restrictions, so we set the bits to true for all vehicles
+		restricted_directions.forward.set_bit(CAR, true);
+		restricted_directions.backward.set_bit(CAR, true);
+		restricted_directions.forward.set_bit(BICYCLE, true);
+		restricted_directions.backward.set_bit(BICYCLE, true);
+		restricted_directions.forward.set_bit(PEDESTRIAN, true);
+		restricted_directions.backward.set_bit(PEDESTRIAN, true);
+
+		if(is_car_allowed) {
+			auto direction_category = get_osm_car_direction_category(osm_way_id, tags, log_message);
+			bool car_allowed_in_direction = (direction_category == OSMWayDirectionCategory::open_in_both ||
+				direction_category == OSMWayDirectionCategory::only_open_forwards);
+			restricted_directions.forward.set_bit(CAR, !car_allowed_in_direction); // If cars are allowed, disable the car restriction in the forward direction
+
+			car_allowed_in_direction = (direction_category == OSMWayDirectionCategory::open_in_both ||
+				direction_category == OSMWayDirectionCategory::only_open_backwards);
+			restricted_directions.backward.set_bit(CAR, !car_allowed_in_direction);
+		}
+
+		if(is_bicycle_allowed) {
+			auto direction_category = get_osm_bicycle_direction_category(osm_way_id, tags, log_message);
+			bool bicycle_allowed_in_direction = (direction_category == OSMWayDirectionCategory::open_in_both ||
+				direction_category == OSMWayDirectionCategory::only_open_forwards);
+			restricted_directions.forward.set_bit(BICYCLE, !bicycle_allowed_in_direction);
+			bicycle_allowed_in_direction = (direction_category == OSMWayDirectionCategory::open_in_both ||
+				direction_category == OSMWayDirectionCategory::only_open_backwards);
+			restricted_directions.backward.set_bit(BICYCLE, !bicycle_allowed_in_direction);
+		}
+
+		if(is_pedestrian_allowed) {
+			restricted_directions.forward.set_bit(PEDESTRIAN, false);
+			restricted_directions.backward.set_bit(PEDESTRIAN, false);
+		}
+
 		// Store car-specific data
 		if (is_car_allowed) {
 			way_speed[routing_way_id] = get_osm_way_speed(osm_way_id, tags, log_message);
@@ -204,17 +241,7 @@ SimpleOSMMultiProfileRoutingGraph simple_load_osm_multi_profile_routing_graph_fr
 			way_bicycle_comfort[routing_way_id] = 0; // Lowest comfort for non-bicycle ways
 		}
 		
-		// Determine direction category based on the most restrictive vehicle type
-		// Cars have the most directional restrictions, so use car logic if cars are allowed
-		// This results in incorrect direction categories for bicycle and pedestrian ways, if one-way restrictions are present.
-		// TODO: Reimplement this to allow distinct labels for both directions.
-		if (is_car_allowed) {
-			return get_osm_car_direction_category(osm_way_id, tags, log_message);
-		} else if (is_bicycle_allowed) {
-			return get_osm_bicycle_direction_category(osm_way_id, tags, log_message);
-		} else {
-			return OSMWayDirectionCategory::open_in_both;
-		}
+		return restricted_directions;
 	};
 
 	auto routing_graph = load_osm_routing_graph_from_pbf(
