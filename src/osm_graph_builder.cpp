@@ -22,8 +22,8 @@ OSMLabelRestrictedDirections::OSMLabelRestrictedDirections(
 	OSMWayDirectionCategory direction_category,
 	unsigned label_index
 ){
-	forward = Label(0);
-	backward = Label(0);
+	forward = Label::fully_restricted();
+	backward = Label::fully_restricted();
 	
 	switch(direction_category){
 		case OSMWayDirectionCategory::open_in_both:
@@ -32,15 +32,9 @@ OSMLabelRestrictedDirections::OSMLabelRestrictedDirections(
 			break;
 		case OSMWayDirectionCategory::only_open_forwards:
 			forward.set_bit(false, label_index);
-			backward.set_bit(true, label_index);
 			break;
 		case OSMWayDirectionCategory::only_open_backwards:
-			forward.set_bit(true, label_index);
 			backward.set_bit(false, label_index);
-			break;
-		case OSMWayDirectionCategory::closed:
-			forward.set_bit(true, label_index);
-			backward.set_bit(true, label_index);
 			break;
 	}
 }
@@ -143,6 +137,7 @@ OSMRoutingIDMapping load_osm_id_mapping_from_pbf(
 OSMRoutingGraph load_osm_routing_graph_from_pbf(
 	const std::string&pbf_file,
 	const OSMRoutingIDMapping&mapping,
+	unsigned label_index,
 	std::function<OSMWayDirectionCategory(uint64_t, unsigned, const TagMap&)>way_callback,
 	std::function<
 		void(
@@ -152,20 +147,20 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 			std::function<void(OSMTurnRestriction)>
 		)
 	>turn_restriction_decoder,
-	std::function<Label(const TagMap&)>label_decoder,
 	std::function<void(const std::string&)>log_message,
 	bool file_is_ordered_even_though_file_header_says_that_it_is_unordered,
 	OSMRoadGeometry geometry_to_be_extracted
 ){
+	assert(label_index < 64 && "label index must be less than 64");
+
 	return load_osm_routing_graph_from_pbf(
 		pbf_file,
 		mapping,
 		[&](uint64_t osm_way_id, unsigned routing_way_id, const TagMap&way_tags){
 			auto direction_category = way_callback(osm_way_id, routing_way_id, way_tags);
-			return OSMLabelRestrictedDirections(direction_category, 0);
+			return OSMLabelRestrictedDirections(direction_category, label_index);
 		},
 		turn_restriction_decoder,
-		label_decoder,
 		log_message,
 		file_is_ordered_even_though_file_header_says_that_it_is_unordered,
 		geometry_to_be_extracted
@@ -185,7 +180,6 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 			std::function<void(OSMTurnRestriction)>
 		)
 	>turn_restriction_decoder,
-	std::function<Label(const TagMap&)>label_decoder,
 	std::function<void(const std::string&)>log_message,
 	bool file_is_ordered_even_though_file_header_says_that_it_is_unordered,
 	OSMRoadGeometry geometry_to_be_extracted
@@ -196,16 +190,13 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 		way_callback = [](uint64_t, unsigned, const TagMap&){ return OSMLabelRestrictedDirections(OSMWayDirectionCategory::open_in_both, 0); };
 	}
 
-	if(label_decoder == nullptr){
-		label_decoder = [](const TagMap&){ return Label(); };
-	}
-
 	if(turn_restriction_decoder && geometry_to_be_extracted == OSMRoadGeometry::none){
 		geometry_to_be_extracted = OSMRoadGeometry::first_and_last;
 	}
 
 	std::vector<unsigned>tail;
 	OSMRoutingGraph routing_graph;
+	const Label fully_restricted = Label::fully_restricted();
 
 	long long timer=0;
 
@@ -326,10 +317,8 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 								modelling_node_latitude.pop_back();
 								modelling_node_longitude.pop_back();
 							}
-
-							Label label = label_decoder(tags);
 							
-							if(dir.forward.get_label() != 0){
+							if(dir.forward != fully_restricted){ // only add arc if there exists a vehicle allowed for this direction
 								on_new_arc(
 									routing_id_of_last_routing_node, routing_id_of_current_node,
 									dist_since_last_routing_node, routing_way_id, false,
@@ -337,7 +326,7 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 								);
 							}
 
-							if(dir.backward.get_label() != 0){
+							if(dir.backward != fully_restricted){
 								std::reverse(modelling_node_latitude.begin(), modelling_node_latitude.end());
 								std::reverse(modelling_node_longitude.begin(), modelling_node_longitude.end());
 								on_new_arc(

@@ -59,11 +59,11 @@ int main(int argc, char*argv[]){
 		auto routing_graph = load_osm_routing_graph_from_pbf(
 			pbf_file,
 			mapping,
+			0,
 			[&](uint64_t osm_way_id, unsigned routing_way_id, const TagMap&way_tags){
 				way_speed[routing_way_id] = get_osm_way_speed(osm_way_id, way_tags, log_message);
 				return get_osm_car_direction_category(osm_way_id, way_tags, log_message);
 			},
-			nullptr,
 			nullptr,
 			log_message,
 			false

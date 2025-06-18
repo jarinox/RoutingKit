@@ -13,15 +13,6 @@
 
 namespace RoutingKit{
 
-class OSMLabelRestrictedDirections{
-public:
-	OSMLabelRestrictedDirections() = default;
-	OSMLabelRestrictedDirections(const OSMWayDirectionCategory, unsigned label_index);
-
-	Label forward;
-	Label backward;
-};
-
 struct OSMRoutingIDMapping{
 	BitVector is_modelling_node;
 	BitVector is_routing_node;
@@ -54,6 +45,16 @@ enum class OSMTurnDirection{
 	straight_on,
 	u_turn
 
+};
+
+class OSMLabelRestrictedDirections{
+public:
+	OSMLabelRestrictedDirections() : 
+		forward(Label::fully_restricted()), backward(Label::fully_restricted()){};
+	OSMLabelRestrictedDirections(const OSMWayDirectionCategory, unsigned label_index);
+
+	Label forward;
+	Label backward;
 };
 
 struct OSMTurnRestriction{
@@ -104,6 +105,8 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 
 	const OSMRoutingIDMapping&mapping,
 
+	unsigned label_index,
+
 	std::function<
 		OSMWayDirectionCategory(
 			uint64_t osm_way_id,
@@ -120,8 +123,6 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 			std::function<void(OSMTurnRestriction)>
 		)
 	>turn_restriction_decoder,
-
-	std::function<Label(const TagMap&)>label_decoder,
 
 	std::function<void(const std::string&)>log_message = nullptr,
 
@@ -151,8 +152,6 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 			std::function<void(OSMTurnRestriction)>
 		)
 	>turn_restriction_decoder,
-
-	std::function<Label(const TagMap&)>label_decoder,
 
 	std::function<void(const std::string&)>log_message = nullptr,
 
