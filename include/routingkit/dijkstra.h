@@ -81,7 +81,7 @@ public:
 
 	Dijkstra& set_labels(const std::vector<Label>&label){
 		this->label = &label;
-		assert(label.size() == first_out->size()-1);
+		assert(label.size() == tail->size());
 		return *this;
 	}
 
