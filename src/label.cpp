@@ -4,6 +4,12 @@ Label::Label() : label(0) {}
 
 Label::Label(uint64_t label) : label(label) {}
 
+Label Label::fully_restricted() {
+    Label l = Label();
+    l.invert();
+    return l;
+}
+
 uint64_t Label::get_label() const {
     return label;
 }
@@ -59,4 +65,8 @@ Label Label::unite(const Label& other) const {
 }
 Label Label::intersect(const Label& other) const {
     return Label(label & other.label);
+}
+
+void Label::invert() {
+    label = ~label;
 }

@@ -11,7 +11,7 @@ int main(){
     const unsigned int BIKE = 2;
     const unsigned int PEDESTRIAN = 3;
 
-    Label l1 = Label(0);
+    Label l1 = Label();
     
     // Prohibition of CAR, BUS, and PEDESTRIAN
     // Allow BIKE
@@ -27,7 +27,7 @@ int main(){
     EXPECT_CMP(l1.get_bit(4), ==, false);
 
     // Restriction label to check, whether BIKE is allowed
-    Label restrictions = Label(0);
+    Label restrictions = Label();
     restrictions.set_bit(true, BIKE);
 
     // Check if the label matches the restrictions
@@ -44,8 +44,8 @@ int main(){
 
 
     // Subset and superset checks
-    Label l2 = Label(0);
-    Label l3 = Label(0);
+    Label l2 = Label();
+    Label l3 = Label();
 
     l2.set_bit(true, CAR);
     l2.set_bit(true, BUS);
@@ -81,6 +81,17 @@ int main(){
     EXPECT(l5.get_bit(BUS) == true);
     EXPECT(l5.get_bit(BIKE) == false);
     EXPECT(l5.get_bit(PEDESTRIAN) == false);
+
+    // Fully restricted labels and inversion
+    Label l6 = Label::fully_restricted();
+    Label l7 = Label::fully_restricted();
+    l7.invert();
+    Label l8 = Label();
+    for(unsigned i = 0; i < 64; ++i){
+        EXPECT(l6.get_bit(i) == true);
+        EXPECT(l7.get_bit(i) == false);
+        l8.set_bit(false, i);
+    }
 
 	return expect_failed;
 }
