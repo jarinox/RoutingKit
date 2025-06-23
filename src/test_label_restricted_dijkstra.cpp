@@ -9,22 +9,21 @@ using namespace RoutingKit;
 using namespace std;
 
 int main(int argc, char*argv[]){
+	auto log_message = [](const std::string&msg){
+		cout << msg << endl;
+	};
+
 	auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf("map.osm.pbf");
-	auto carGraph = simple_load_osm_car_routing_graph_from_pbf("map.osm.pbf");
 	auto tail = invert_inverse_vector(graph.first_out);
 
 	// Build the index to quickly map latitudes and longitudes
-	GeoPositionToNode map_geo_position_car(carGraph.latitude, carGraph.longitude);
 	GeoPositionToNode map_geo_position(graph.latitude, graph.longitude);
 	Dijkstra dij(graph.first_out, tail, graph.head);
 
 	Label profile = Label(0);
-	profile.set_bit(false, CAR);
-	profile.set_bit(true, BICYCLE); // Use bicycle profile
-	profile.set_bit(false, PEDESTRIAN);
 
 	float from_latitude, from_longitude, to_latitude, to_longitude;
-	if (argc != 5){
+	if (argc != 5 && argc != 6){
         cout << "Usage: " << argv[0] << " from_latitude from_longitude to_latitude to_longitude" << endl;
         return 1;
     } else {
@@ -32,15 +31,25 @@ int main(int argc, char*argv[]){
         from_longitude = atof(argv[2]);
         to_latitude = atof(argv[3]);
         to_longitude = atof(argv[4]);
-    }
 
-	// Snap to input coordinates to the car graph
-	unsigned fromIdCar = map_geo_position_car.find_nearest_neighbor_within_radius(from_latitude, from_longitude, 1000).id;
-	from_latitude = carGraph.latitude[fromIdCar];
-	from_longitude = carGraph.longitude[fromIdCar];
-	unsigned toIdCar = map_geo_position_car.find_nearest_neighbor_within_radius(to_latitude, to_longitude, 1000).id;
-	to_latitude = carGraph.latitude[toIdCar];
-	to_longitude = carGraph.longitude[toIdCar];
+		if(argc == 6) {
+			switch (argv[5][0])  // Assuming argv[5] is a single character for profile selection
+			{
+			case 'c':
+				profile.set_bit(true, CAR);
+				break;
+			case 'b':
+				profile.set_bit(true, BICYCLE);
+				break;
+			case 'p':
+				profile.set_bit(true, PEDESTRIAN);
+				break;
+			default:
+				cout << "Invalid profile selection. Use 'c' for car, 'b' for bicycle, or 'p' for pedestrian." << endl;
+				return 1;
+			}
+		}
+    }
 
     unsigned from = map_geo_position.find_nearest_neighbor_within_radius(from_latitude, from_longitude, 1000).id;
 		if(from == invalid_id){
