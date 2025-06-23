@@ -290,7 +290,7 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 			unsigned routing_way_id = routing_way.to_local(osm_way_id, invalid_id);
 			if(routing_way_id != invalid_id){
 				OSMLabelRestrictedDirections dir = way_callback(osm_way_id, routing_way_id, tags);
-				if(!(dir.forward.get_label() == 0 && dir.backward.get_label() == 0)){
+				if(!(dir.forward == fully_restricted && dir.backward == fully_restricted)){
 					unsigned modelling_id_of_previous_modelling_node = modelling_node.to_local(node_list[0]);
 					unsigned routing_id_of_last_routing_node = routing_node.to_local(node_list[0]);
 
@@ -366,6 +366,7 @@ OSMRoutingGraph load_osm_routing_graph_from_pbf(
 		routing_graph.geo_distance = apply_inverse_permutation(p, std::move(routing_graph.geo_distance));
 		routing_graph.way = apply_inverse_permutation(p, std::move(routing_graph.way));
 		routing_graph.is_arc_antiparallel_to_way = apply_inverse_permutation(p, std::move(routing_graph.is_arc_antiparallel_to_way));
+		routing_graph.labels = apply_inverse_permutation(p, std::move(routing_graph.labels));
 		routing_graph.first_out = invert_vector(tail, node_count);
 
 		if(geometry_to_be_extracted == OSMRoadGeometry::uncompressed || geometry_to_be_extracted == OSMRoadGeometry::first_and_last){

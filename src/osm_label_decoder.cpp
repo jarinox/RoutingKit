@@ -8,7 +8,7 @@ bool str_eq(const char*l, const char*r){
 Label extract_label_from_osm_way(
     const TagMap&way_tags
 ) {
-    Label label(0);
+    Label label = Label::fully_restricted();
     label.set_bit(!is_osm_way_used_by_pedestrians(0, way_tags, nullptr), PEDESTRIAN);
     label.set_bit(!is_osm_way_used_by_bicycles(0, way_tags, nullptr), BICYCLE);
     label.set_bit(!is_osm_way_used_by_cars(0, way_tags, nullptr), CAR);
