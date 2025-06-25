@@ -5,6 +5,7 @@
 #include <routingkit/timer.h>
 #include <routingkit/graph_util.h>
 #include <routingkit/vector_io.h>
+#include <routingkit/label.h>
 
 #include <vector>
 #include <fstream>
@@ -84,11 +85,10 @@ namespace{
 	public:
 		Graph(){}
 
-		Graph(unsigned node_count, const std::vector<unsigned>&tail, const std::vector<unsigned>&head, const std::vector<unsigned>&weight):
+		Graph(unsigned node_count, const std::vector<unsigned>&tail, const std::vector<unsigned>&head, const std::vector<unsigned>&weight, std::vector<Label>&label):
 			out_(node_count),
 			in_(node_count),
 			level_(node_count, 0){
-
 			for(unsigned a=0; a<head.size(); ++a){
 				unsigned x = tail[a];
 				unsigned y = head[a];
@@ -96,19 +96,19 @@ namespace{
 
 
 				if(x != y){
-					out_[x].push_back({y, w, 1, invalid_id});
-					in_[y].push_back({x, w, 1, invalid_id});
+					out_[x].push_back({y, w, 1, invalid_id, label[a]});
+					in_[y].push_back({x, w, 1, invalid_id, label[a]});
 				}
 			}
 		}
 
-		void add_arc_or_reduce_arc_weight(unsigned x, unsigned mid_node, unsigned y, unsigned weight, unsigned hop_length){
+		void add_arc_or_reduce_arc_weight(unsigned x, unsigned mid_node, unsigned y, unsigned weight, unsigned hop_length, Label label){
 			assert(x != y);
 
 			assert(x < node_count());
 			assert(y < node_count());
 
-			auto reduce_arc_if_exists = [weight, hop_length, mid_node](
+			auto reduce_arc_if_exists = [weight, hop_length, mid_node, label](
 				unsigned x, std::vector<Arc>&x_out,
 				unsigned y, std::vector<Arc>&y_in
 			){
@@ -116,6 +116,9 @@ namespace{
 				// Does arc exist?
 				for(unsigned out_arc = 0; out_arc < x_out.size(); ++out_arc){
 					if(x_out[out_arc].node == y){
+						if(!x_out[out_arc].label.is_subset_of(label)){
+							x_out[out_arc].label = x_out[out_arc].label.unite(label);
+						}
 
 						// Is the existing arc longer?
 						if(x_out[out_arc].weight <= weight)
@@ -148,8 +151,8 @@ namespace{
 			}
 
 			// The edges does not exist -> add the edge
-			out_[x].push_back({y,weight,hop_length,mid_node});
-			in_[y].push_back({x,weight,hop_length,mid_node});
+			out_[x].push_back({y,weight,hop_length,mid_node,label});
+			in_[y].push_back({x,weight,hop_length,mid_node,label});
 		}
 
 		void remove_all_incident_arcs(unsigned x){
@@ -182,6 +185,7 @@ namespace{
 			unsigned weight;
 			unsigned hop_length;
 			unsigned mid_node;
+			Label label;
 		};
 
 		unsigned out_deg(unsigned node)const{
@@ -303,7 +307,8 @@ namespace{
 			const GetOutDeg&graph_out_deg,
 			const GetOutArc&graph_out,
 			unsigned bypass,
-			unsigned len
+			unsigned len,
+			Label r
 		){
 			auto p = forward_queue.pop();
 
@@ -372,7 +377,7 @@ namespace{
 			bypass_node = new_bypass_node;
 		}
 
-		bool does_shorter_or_equal_path_to_target_exist(unsigned t, unsigned len){
+		bool does_shorter_or_equal_path_to_target_exist(unsigned t, unsigned len, Label r){
 			was_backward_pushed.reset_all();
 			backward_queue.clear();
 			backward_queue.push({t, 0});
@@ -401,7 +406,8 @@ namespace{
 							[&](unsigned x){return graph->out_deg(x);},
 							[&](unsigned x, unsigned a){return graph->out(x, a);},
 							bypass_node,
-							len
+							len,
+							r
 						)
 					){
 						assert_witness_found(len);
@@ -418,7 +424,8 @@ namespace{
 							[&](unsigned x){return graph->in_deg(x);},
 							[&](unsigned x, unsigned a){return graph->in(x, a);},
 							bypass_node,
-							len
+							len,
+							r
 						)
 					){
 						assert_witness_found(len);
@@ -437,7 +444,7 @@ namespace{
 			return false;
 		}
 
-		bool does_shorter_or_equal_path_exist(unsigned s, unsigned t, unsigned len, unsigned bypass){
+		bool does_shorter_or_equal_path_exist(unsigned s, unsigned t, unsigned len, unsigned bypass, Label r){
 			if(s == t)
 				return true;
 
@@ -475,7 +482,8 @@ namespace{
 							[&](unsigned x){return graph->out_deg(x);},
 							[&](unsigned x, unsigned a){return graph->out(x, a);},
 							bypass,
-							len
+							len,
+							r
 						)
 					){
 						assert_witness_found(len);
@@ -492,7 +500,8 @@ namespace{
 							[&](unsigned x){return graph->in_deg(x);},
 							[&](unsigned x, unsigned a){return graph->in(x, a);},
 							bypass,
-							len
+							len,
+							r
 						)
 					){
 						assert_witness_found(len);
@@ -534,12 +543,14 @@ namespace{
 			unsigned in_node = graph.in(node, in_arc).node;
 			shorter_path_test.pin_source(in_node, node);
 			for(unsigned out_arc = 0; out_arc < graph.out_deg(node); ++out_arc){
+				Label r = graph.in(node, in_arc).label.unite(graph.out(node, out_arc).label);
 				unsigned out_node = graph.out(node, out_arc).node;
 				if(in_node != out_node){
 					if(
 						!shorter_path_test.does_shorter_or_equal_path_to_target_exist(
 							out_node,
-							graph.in(node, in_arc).weight + graph.out(node, out_arc).weight
+							graph.in(node, in_arc).weight + graph.out(node, out_arc).weight,
+							r
 						)
 					){
 						++added_arc_count;
@@ -569,17 +580,20 @@ namespace{
 			shorter_path_test.pin_source(in_node, node_being_contracted);
 			for(unsigned out_arc = 0; out_arc < graph.out_deg(node_being_contracted); ++out_arc){
 				unsigned out_node = graph.out(node_being_contracted, out_arc).node;
+				Label r = graph.in(node_being_contracted, in_arc).label.unite(graph.out(node_being_contracted, out_arc).label);
 				if(in_node != out_node){
 					if(
 						!shorter_path_test.does_shorter_or_equal_path_to_target_exist(
 							out_node,
-							graph.in(node_being_contracted, in_arc).weight + graph.out(node_being_contracted, out_arc).weight
+							graph.in(node_being_contracted, in_arc).weight + graph.out(node_being_contracted, out_arc).weight,
+							r
 						)
 					){
 						graph.add_arc_or_reduce_arc_weight(
 							in_node, node_being_contracted, out_node,
 							graph.in(node_being_contracted, in_arc).weight     + graph.out(node_being_contracted, out_arc).weight,
-							graph.in(node_being_contracted, in_arc).hop_length + graph.out(node_being_contracted, out_arc).hop_length
+							graph.in(node_being_contracted, in_arc).hop_length + graph.out(node_being_contracted, out_arc).hop_length,
+							r
 						);
 					}
 				}
@@ -1091,7 +1105,7 @@ namespace {
 
 
 ContractionHierarchy ContractionHierarchy::build(
-	unsigned node_count, std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight,
+	unsigned node_count, std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight, std::vector<Label>label,
 	const std::function<void(std::string)>&log_message, unsigned max_pop_count
 ){
 	assert(tail.size() == head.size());
@@ -1112,7 +1126,7 @@ ContractionHierarchy ContractionHierarchy::build(
 	}
 
 	{
-		Graph graph(node_count, tail, head, weight);
+		Graph graph(node_count, tail, head, weight, label);
 		build_ch_and_order(graph, ch, ch_extra, max_pop_count, log_message);
 	}
 
@@ -1136,7 +1150,7 @@ ContractionHierarchy ContractionHierarchy::build(
 
 ContractionHierarchy ContractionHierarchy::build_given_rank(
 	std::vector<unsigned>rank,
-	std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight,
+	std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight, std::vector<Label>label,
 	const std::function<void(std::string)>&log_message, unsigned max_pop_count
 ){
 	unsigned node_count = rank.size();
@@ -1162,7 +1176,7 @@ ContractionHierarchy ContractionHierarchy::build_given_rank(
 
 
 	{
-		Graph graph(node_count, tail, head, weight);
+		Graph graph(node_count, tail, head, weight, label);
 		build_ch_given_rank(graph, ch, ch_extra, rank, max_pop_count, log_message);
 	}
 
@@ -1180,10 +1194,10 @@ ContractionHierarchy ContractionHierarchy::build_given_rank(
 
 ContractionHierarchy ContractionHierarchy::build_given_order(
 	std::vector<unsigned>order,
-	std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight,
+	std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight, std::vector<Label>label,
 	const std::function<void(std::string)>&log_message, unsigned max_pop_count
 ){
-	return build_given_rank(invert_permutation(order), tail, head, weight, log_message, max_pop_count);
+	return build_given_rank(invert_permutation(order), tail, head, weight, label, log_message, max_pop_count);
 }
 
 void check_contraction_hierarchy_for_errors(const ContractionHierarchy&ch){
@@ -1478,6 +1492,11 @@ ContractionHierarchyQuery&ContractionHierarchyQuery::add_source(unsigned externa
 	}
 
 	was_forward_pushed.set(s);
+	return *this;
+}
+
+ContractionHierarchyQuery&ContractionHierarchyQuery::set_profile(Label label){
+	profile = std::move(label);
 	return *this;
 }
 

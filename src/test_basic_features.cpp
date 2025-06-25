@@ -89,6 +89,7 @@ int main(int argc, char*argv[]){
 
 	unsigned node_count = first_out.size()-1;
 	unsigned arc_count = head.size();
+	vector<Label>label(arc_count, Label());
 
 	vector<unsigned>source1(test_count);
 	vector<unsigned>source2(test_count);
@@ -154,7 +155,7 @@ int main(int argc, char*argv[]){
 		}
 	};
 
-	ContractionHierarchy ch = ContractionHierarchy::build(node_count, tail, head, travel_time, log_message);
+	ContractionHierarchy ch = ContractionHierarchy::build(node_count, tail, head, travel_time, label, log_message);
 	auto cch_order = compute_nested_node_dissection_order_using_inertial_flow(node_count, tail, head, latitude, longitude, log_message);
 		
 	{

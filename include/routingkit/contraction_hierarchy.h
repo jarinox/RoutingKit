@@ -5,6 +5,7 @@
 #include <routingkit/timestamp_flag.h>
 #include <routingkit/bit_vector.h>
 #include <routingkit/permutation.h>
+#include <routingkit/label.h>
 
 #include <vector>
 #include <string>
@@ -20,19 +21,19 @@ public:
 	static const unsigned default_max_pop_count = 500;
 
 	static ContractionHierarchy build(
-		unsigned node_count, std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight,
+		unsigned node_count, std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight, std::vector<Label>label,
 		const std::function<void(std::string)>&log_message = std::function<void(std::string)>(), unsigned max_pop_count = default_max_pop_count
 	);
 
 	static ContractionHierarchy build_given_rank(
 		std::vector<unsigned>rank,
-		std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight,
+		std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight, std::vector<Label>label,
 		const std::function<void(std::string)>&log_message = std::function<void(std::string)>(), unsigned max_pop_count = default_max_pop_count
 	);
 
 	static ContractionHierarchy build_given_order(
 		std::vector<unsigned>order,
-		std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight,
+		std::vector<unsigned>tail, std::vector<unsigned>head, std::vector<unsigned>weight, std::vector<Label>label,
 		const std::function<void(std::string)>&log_message = std::function<void(std::string)>(), unsigned max_pop_count = default_max_pop_count
 	);
 
@@ -111,6 +112,7 @@ public:
 
 	ContractionHierarchyQuery&add_source(unsigned s, unsigned dist_to_s = 0);
 	ContractionHierarchyQuery&add_target(unsigned t, unsigned dist_to_t = 0);
+	ContractionHierarchyQuery&set_profile(Label label);
 
 	ContractionHierarchyQuery&run();
 
@@ -203,6 +205,7 @@ public:
 
 	TimestampFlags was_forward_pushed, was_backward_pushed;
 	MinIDQueue forward_queue, backward_queue;
+	Label profile;
 	std::vector<unsigned>forward_tentative_distance, backward_tentative_distance;
 	std::vector<unsigned>forward_predecessor_node, backward_predecessor_node;
 	std::vector<unsigned>forward_predecessor_arc, backward_predecessor_arc;

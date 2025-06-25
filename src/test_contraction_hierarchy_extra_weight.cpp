@@ -72,8 +72,10 @@ int main(int argc, char*argv[]){
 				head = {2, 3},
 				weight = {1, 1},
 				target_list = {3, 2};
+			std::vector<Label>
+				label = {Label(), Label()};
 			unsigned node_count = 4;
-			auto ch = ContractionHierarchy::build(node_count, tail, head, weight);
+			auto ch = ContractionHierarchy::build(node_count, tail, head, weight, label);
 			ContractionHierarchyQuery q(ch);
 			std::vector<unsigned> 
 				used_sources = q.reset()
@@ -97,7 +99,9 @@ int main(int argc, char*argv[]){
 				extra_weight2 = {-10, -1, -10, -1};
 			std::vector<std::string>
 				extra_weight3 = {"foo", "bla", "bar", "hoo"};
-			auto ch = ContractionHierarchy::build(node_count, tail, head, weight);
+			std::vector<Label>
+				label = {Label(), Label(), Label(), Label()};
+			auto ch = ContractionHierarchy::build(node_count, tail, head, weight, label);
 			ContractionHierarchyQuery q(ch);
 
 			q.add_source(0).add_target(3).run();
@@ -121,8 +125,10 @@ int main(int argc, char*argv[]){
 				target_list = {3, 1};
 			std::vector<std::string>
 				extra_weight = {"foo", "bla", "bar", "hoo"};
+			std::vector<Label>
+				label = {Label(), Label(), Label(), Label()};
 
-			auto ch = ContractionHierarchy::build(node_count, tail, head, weight);
+			auto ch = ContractionHierarchy::build(node_count, tail, head, weight, label);
 			ContractionHierarchyQuery q(ch);
 
 			std::vector<std::string>d = q
@@ -172,6 +178,18 @@ int main(int argc, char*argv[]){
 					1, 1, 1				
 				},
 				extra_scalar_weight = tail;
+			
+			vector<Label>
+				label = {
+					Label(),
+					Label(), Label(), Label(),
+					Label(),
+					Label(),
+					Label(), Label(), Label(),
+					Label(),
+					Label(), Label(), Label(),
+					Label(), Label(), Label()
+				};
 
 			const unsigned arc_count = tail.size();
 
@@ -182,7 +200,7 @@ int main(int argc, char*argv[]){
 			for(unsigned i=0; i<node_count; ++i)
 				order[i] = i;
 
-			auto ch = ContractionHierarchy::build_given_order(order, tail, head, weight);
+			auto ch = ContractionHierarchy::build_given_order(order, tail, head, weight, label);
 
 			vector<vector<unsigned>>extra_path_weight(arc_count);
 			for(unsigned i=0; i<arc_count; ++i)
@@ -346,6 +364,8 @@ int main(int argc, char*argv[]){
 				head = load_vector<unsigned>(argv[2]),
 				weight = load_vector<unsigned>(argv[3]),
 				extra_scalar_weight = load_vector<unsigned>(argv[4]);
+			
+			vector<Label>label = vector<Label>(first_out.size()-1, Label());
 
 			const unsigned node_count = first_out.size()-1;
 			const unsigned arc_count = tail.size();
@@ -358,7 +378,7 @@ int main(int argc, char*argv[]){
 			for(unsigned i=0; i<arc_count; ++i)
 				extra_path_weight[i] = {i};
 
-			auto ch = ContractionHierarchy::build(node_count, tail, head, weight, log_message);
+			auto ch = ContractionHierarchy::build(node_count, tail, head, weight, label, log_message);
 
 			long long scalar_weight_time = -get_micro_time();
 			ContractionHierarchyExtraWeight<unsigned>ch_extra_scalar_weight(ch, extra_scalar_weight, scalar_link);

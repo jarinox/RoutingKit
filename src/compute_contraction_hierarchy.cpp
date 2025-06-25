@@ -37,6 +37,7 @@ int main(int argc, char*argv[]){
 		vector<unsigned>first_out = load_vector<unsigned>(graph_first_out);
 		vector<unsigned>head = load_vector<unsigned>(graph_head);
 		vector<unsigned>weight = load_vector<unsigned>(graph_weight);
+		vector<Label>label(first_out.size()-1, Label());
 
 		cout << "done" << endl;
 
@@ -60,7 +61,7 @@ int main(int argc, char*argv[]){
 			throw runtime_error("The weight vector must be as long as the number of arcs");
 
 		
-		auto ch = ContractionHierarchy::build(node_count, invert_inverse_vector(first_out), head, weight, [](string msg){cout << msg << endl;});
+		auto ch = ContractionHierarchy::build(node_count, invert_inverse_vector(first_out), head, weight, label, [](string msg){cout << msg << endl;});
 		check_contraction_hierarchy_for_errors(ch);
 		ch.save_file(ch_file);
 
