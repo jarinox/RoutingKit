@@ -22,7 +22,7 @@ int main(int argc, char*argv[]){
 	auto tail = invert_inverse_vector(graph.first_out);
 		
     auto ch = ContractionHierarchy::build(graph.node_count(), tail, graph.head, graph.travel_time, graph.label);
-    check_contraction_hierarchy_for_errors(ch);
+    //check_contraction_hierarchy_for_errors(ch);
 
     auto geo_position_to_node = GeoPositionToNode(graph.latitude, graph.longitude);
     RoutingRequest request = parse_routing_request(argc, argv, geo_position_to_node);
@@ -33,24 +33,26 @@ int main(int argc, char*argv[]){
     }
 
     ContractionHierarchyQuery ch_query(ch);
+
+    auto time = -get_micro_time();
     ch_query.reset()
         .add_source(request.from_node)
         .set_profile(request.profile)
         .add_target(request.to_node)
         .run();
-    
-    if(!ch_query.get_used_target()){
-        cout << "No path found from source to target" << endl;
-        return 1;
-    }
 
-    auto path = ch_query.get_node_path();
+    auto path = ch_query.get_arc_path();
+
+    time += get_micro_time();
+
+    //cout << "Query time: " << time << " microseconds" << endl;
 
     cout << request.from_latitude << " " << request.from_longitude << " "
 			<< request.to_latitude << " " << request.to_longitude << endl;
 
 	for(auto x:path)
-		cout << graph.latitude[x] << " " << graph.longitude[x] << " " << human_readable_label(graph.label[x]) << endl;
+		cout << graph.latitude[graph.head[x]] << " " << graph.longitude[graph.head[x]] << " "
+				<< human_readable_label(graph.label[x]) << endl;
     
 }
 

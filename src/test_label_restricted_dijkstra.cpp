@@ -23,6 +23,7 @@ int main(int argc, char*argv[]){
 
 	auto request = parse_routing_request(argc, argv, map_geo_position);
 
+	long long start_time = get_micro_time();
 	dij.reset().add_source(request.from_node).set_labels(graph.label).set_profile(request.profile);
 	while(!dij.is_finished()){
 		auto settle_result = dij.settle([&](unsigned arc, unsigned distance){
@@ -37,13 +38,16 @@ int main(int argc, char*argv[]){
 		return 1;
 	}
 
-	long long start_time = get_micro_time();
-	auto path = dij.get_node_path_to(request.to_node);
+	auto path = dij.get_arc_path_to(request.to_node);
 	long long end_time = get_micro_time();
+
+	//cout << "Query time: " << (end_time - start_time) << " microseconds" << endl;
+
 
 	cout << request.from_latitude << " " << request.from_longitude << " "
 			<< request.to_latitude << " " << request.to_longitude << endl;
 
 	for(auto x:path)
-		cout << graph.latitude[x] << " " << graph.longitude[x] << " " << human_readable_label(graph.label[x]) << endl;
+		cout << graph.latitude[graph.head[x]] << " " << graph.longitude[graph.head[x]] << " "
+				<< human_readable_label(graph.label[x]) << endl;
 }
