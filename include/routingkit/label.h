@@ -22,7 +22,7 @@ public:
     Label intersect(const Label& other) const;
     void set_bit(bool bit, unsigned bit_position);
     bool get_bit(unsigned bit_position) const;
-    void invert();
+    Label& invert();
 };
 
 #endif // LABEL_H

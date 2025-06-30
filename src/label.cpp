@@ -67,6 +67,7 @@ Label Label::intersect(const Label& other) const {
     return Label(label & other.label);
 }
 
-void Label::invert() {
+Label& Label::invert() {
     label = ~label;
+    return *this;
 }
