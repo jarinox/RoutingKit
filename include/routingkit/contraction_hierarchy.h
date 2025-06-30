@@ -55,6 +55,7 @@ public:
 		std::vector<unsigned>first_out;
 		std::vector<unsigned>head;
 		std::vector<unsigned>weight;
+		std::vector<Label>label;
 
 		BitVector is_shortcut_an_original_arc;
 		std::vector<unsigned>shortcut_first_arc; // contains input arc ID if not shortcut
