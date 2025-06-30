@@ -8,7 +8,12 @@ lib/
 # IDE
 .idea/
 .vscode/
+.github/
 
 # Python cache
 __pycache__/
 *.pyc
+
+# Generated output files
+*.html
+
