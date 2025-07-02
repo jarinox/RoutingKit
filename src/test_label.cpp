@@ -84,13 +84,16 @@ int main(){
 
     // Fully restricted labels and inversion
     Label l6 = Label::fully_restricted();
-    Label l7 = Label::fully_restricted();
-    l7.invert();
+    Label l7 = Label::fully_restricted().invert();
     Label l8 = Label();
+    Label l9 = l5;
+    l9.invert();
+
     for(unsigned i = 0; i < 64; ++i){
         EXPECT(l6.get_bit(i) == true);
         EXPECT(l7.get_bit(i) == false);
         l8.set_bit(false, i);
+        EXPECT(!l9.get_bit(i) == l5.get_bit(i));
     }
 
 	return expect_failed;
