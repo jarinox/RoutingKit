@@ -1,22 +1,30 @@
 import sys
 import folium
+import pyproj
+import math
 
 lines = [line.strip() for line in sys.stdin if line.strip()]
 
 edges = []
 lats, lons = [], []
 
+def bearing(from_lat, from_lon, to_lat, to_lon):
+    geod = pyproj.Geod(ellps="WGS84")
+    return geod.inv(from_lon, from_lat, to_lon, to_lat)[0] + 270
+
 for line in lines:
     parts = line.split()
-    if len(parts) < 5:
+    if len(parts) < 6:
         continue  # skip malformed lines
     from_lat, from_lon, to_lat, to_lon = map(float, parts[:4])
     is_shortcut = parts[4]
-    labels = parts[5:] if len(parts) > 5 else []
+    is_upward = parts[5] == "F"
+    labels = parts[6:] if len(parts) > 5 else []
     edges.append({
         "from": (from_lat, from_lon),
         "to": (to_lat, to_lon),
         "is_shortcut": is_shortcut,
+        "is_upward": is_upward,
         "labels": labels
     })
     lats.extend([from_lat, to_lat])
@@ -27,16 +35,72 @@ center_lon = sum(lons) / len(lons) if lons else 0
 m = folium.Map(location=[center_lat, center_lon], zoom_start=13)
 
 for edge in edges:
-    color = "red" if edge["is_shortcut"] == "S" else "blue"
+    # Choose color based on shortcut/original and upward/downward
+    if edge["is_shortcut"] == "S":
+        color = "#ef0020" if edge["is_upward"] else "#ff8f45"  # red shades
+    else:
+        color = "#0059ff" if edge["is_upward"] else "#5de2d9"  # blue shades
+
     tooltip = f"{'Shortcut' if edge['is_shortcut']=='S' else 'Original'}"
     if edge["labels"]:
         tooltip += " | " + ", ".join(edge["labels"])
+    
+    rot = bearing(
+        edge["from"][0], edge["from"][1],
+        edge["to"][0], edge["to"][1]
+    )
+    
+    # Calculate the direction vector
+    dx = edge["to"][1] - edge["from"][1]
+    dy = edge["to"][0] - edge["from"][0]
+    length = math.hypot(dx, dy)
+    if length == 0:
+        offset_dx, offset_dy = 0, 0
+    else:
+        # Perpendicular unit vector (to the left: (-dy, dx), to the right: (dy, -dx))
+        perp_left = (-dy / length, dx / length)
+        perp_right = (dy / length, -dx / length)
+        offset_amount = 0.00001
+
+        
+        offset_amount *= (((rot % 360) / 360)+1)
+
+        if edge["is_upward"]:
+            offset = perp_left
+        else:
+            offset = perp_right
+
+        offset_dx = offset[0] * offset_amount
+        offset_dy = offset[1] * offset_amount
+
+        # Apply offset to both endpoints
+        edge["from"] = (edge["from"][0] + offset_dx, edge["from"][1] + offset_dy)
+        edge["to"] = (edge["to"][0] + offset_dx, edge["to"][1] + offset_dy)
+
+    # Draw the edge
     folium.PolyLine(
         [edge["from"], edge["to"]],
         color=color,
-        weight=3,
+        weight=2,
         tooltip=tooltip
     ).add_to(m)
+
+    center = (
+        (edge["from"][0] + edge["to"][0]) / 2,
+        (edge["from"][1] + edge["to"][1]) / 2
+    )
+    folium.RegularPolygonMarker(
+        location=center,
+        number_of_sides=3,
+        radius=5,
+        rotation=rot,
+        color=color,
+        fill=True,
+        fill_color=color,
+        tooltip=tooltip
+    ).add_to(m)
+
+
 
 m.save("ch_visualization.html")
 print("Visualization saved to ch_visualization.html")
