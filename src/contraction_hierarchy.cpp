@@ -6,7 +6,10 @@
 #include <routingkit/graph_util.h>
 #include <routingkit/vector_io.h>
 #include <routingkit/label.h>
+#include <routingkit/dijkstra.h>
+#include <routingkit/osm_label_decoder.h>
 
+#include <iostream>
 #include <vector>
 #include <fstream>
 #include <stdexcept>
@@ -116,6 +119,17 @@ namespace{
 					out_[x].push_back({y, w, 1, invalid_id, l});
 					in_[y].push_back({x, w, 1, invalid_id, l});
 				}
+			}
+		}
+
+		void sort_arcs_for_weight(){
+			for(unsigned x = 0; x < node_count(); ++x){
+				std::sort(out_[x].begin(), out_[x].end(), [](const Arc& a, const Arc& b){
+					return a.weight < b.weight;
+				});
+				std::sort(in_[x].begin(), in_[x].end(), [](const Arc& a, const Arc& b){
+					return a.weight < b.weight;
+				});
 			}
 		}
 
@@ -355,12 +369,12 @@ namespace{
 				if(next_node == bypass)
 					continue;
 
+				if(!graph_out(popped_node, out_arc).label.is_allowed(r))
+						continue;
+				
 				unsigned next_node_distance = distance_to_popped_node + graph_out(popped_node, out_arc).weight;
 
 				if(was_forward_pushed.is_set(next_node)){
-					if(!graph_out(popped_node, out_arc).label.is_allowed(r))
-						continue;
-					
 					if(next_node_distance < forward_tentative_distance[next_node]){
 						forward_queue.decrease_key({next_node, next_node_distance});
 						forward_tentative_distance[next_node] = next_node_distance;
@@ -567,7 +581,7 @@ namespace{
 			unsigned in_node = graph.in(node, in_arc).node;
 			shorter_path_test.pin_source(in_node, node);
 			for(unsigned out_arc = 0; out_arc < graph.out_deg(node); ++out_arc){
-				Label r = graph.in(node, in_arc).label.unite(graph.out(node, out_arc).label);
+				Label r = graph.in(node, in_arc).label.unite(graph.out(node, out_arc).label).invert();
 				unsigned out_node = graph.out(node, out_arc).node;
 				if(in_node != out_node){
 					if(
@@ -603,7 +617,10 @@ namespace{
 			shorter_path_test.pin_source(in_node, node_being_contracted);
 			for(unsigned out_arc = 0; out_arc < graph.out_deg(node_being_contracted); ++out_arc){
 				unsigned out_node = graph.out(node_being_contracted, out_arc).node;
-				Label r = graph.in(node_being_contracted, in_arc).label.unite(graph.out(node_being_contracted, out_arc).label);
+				Label newLabels = graph.in(node_being_contracted, in_arc).label.unite(graph.out(node_being_contracted, out_arc).label);
+				Label r = newLabels;
+				r.invert();
+
 				if(in_node != out_node){
 					if(
 						!shorter_path_test.does_shorter_or_equal_path_to_target_exist(
@@ -615,7 +632,7 @@ namespace{
 							in_node, node_being_contracted, out_node,
 							graph.in(node_being_contracted, in_arc).weight + graph.out(node_being_contracted, out_arc).weight,
 							graph.in(node_being_contracted, in_arc).hop_length + graph.out(node_being_contracted, out_arc).hop_length,
-							r);
+							newLabels);
 					}
 				}
 			}
@@ -655,6 +672,7 @@ namespace {
 		}
 
 		const unsigned node_count = graph.node_count();
+		graph.sort_arcs_for_weight();
 
 		ShorterPathTest shorter_path_test(graph, max_pop_count);
 
@@ -1606,7 +1624,7 @@ namespace{
 		MinIDQueue &forward_queue,
 		std::vector<unsigned> &forward_tentative_distance, const std::vector<unsigned> &backward_tentative_distance,
 		std::vector<unsigned> &forward_predecessor_node, std::vector<unsigned> &forward_predecessor_arc,
-		const std::vector<Label> &backward_label, const std::vector<Label> &forward_label, Label profile)
+		const std::vector<Label> &forward_label, const std::vector<Label> &backward_label, Label profile)
 	{
 
 		auto p = forward_queue.pop();
@@ -1714,7 +1732,7 @@ ContractionHierarchyQuery &ContractionHierarchyQuery::run(){
 				forward_queue,
 				forward_tentative_distance, backward_tentative_distance,
 				forward_predecessor_node, forward_predecessor_arc,
-				ch->backward.label, ch->forward.label, profile);
+				ch->forward.label, ch->backward.label, profile);
 			forward_next = false;
 		} else {
 			forward_settle_node(
@@ -1725,7 +1743,7 @@ ContractionHierarchyQuery &ContractionHierarchyQuery::run(){
 				backward_queue,
 				backward_tentative_distance, forward_tentative_distance,
 				backward_predecessor_node, backward_predecessor_arc,
-				ch->forward.label, ch->backward.label, profile);
+				ch->backward.label, ch->forward.label, profile);
 			forward_next = true;
 		}
 	}
