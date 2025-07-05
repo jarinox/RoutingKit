@@ -15,7 +15,7 @@ Label extract_label_from_osm_way(
     return label;
 }
 
-std::string human_readable_label(Label& label) {
+std::string human_readable_label(Label label) {
     std::string result;
     if(!label.get_bit(PEDESTRIAN)) {
         result += "P ";

@@ -20,6 +20,6 @@ Label extract_label_from_osm_way(
     const TagMap&way_tags
 );
 
-std::string human_readable_label(Label&label);
+std::string human_readable_label(Label label);
 
 #endif // OSM_LABEL_DECODER_H
