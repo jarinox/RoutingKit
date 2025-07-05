@@ -133,6 +133,16 @@ namespace{
 			}
 		}
 
+		void sort_node_arcs_for_weight(unsigned node){
+			assert(node < node_count());
+			std::sort(out_[node].begin(), out_[node].end(), [](const Arc& a, const Arc& b){
+				return a.weight < b.weight;
+			});
+			std::sort(in_[node].begin(), in_[node].end(), [](const Arc& a, const Arc& b){
+				return a.weight < b.weight;
+			});
+		}
+
 		void add_arc_or_reduce_arc_weight(unsigned x, unsigned mid_node, unsigned y, unsigned weight, unsigned hop_length, Label label)
 		{
 			assert(x != y);
@@ -612,14 +622,23 @@ namespace{
 	}
 
 	void contract_node(Graph&graph, ShorterPathTest&shorter_path_test, unsigned node_being_contracted){
+		unsigned last_in_arc = 0;
+		assert(node_being_contracted < graph.node_count());
+		graph.sort_node_arcs_for_weight(node_being_contracted);
 		for(unsigned in_arc = 0; in_arc < graph.in_deg(node_being_contracted); ++in_arc){
+			unsigned last_out_arc = 0;
 			unsigned in_node = graph.in(node_being_contracted, in_arc).node;
+			assert(graph.in(node_being_contracted, last_in_arc).weight <= graph.in(node_being_contracted, in_arc).weight);
+			last_in_arc = in_arc;
 			shorter_path_test.pin_source(in_node, node_being_contracted);
+			graph.sort_node_arcs_for_weight(in_node);
 			for(unsigned out_arc = 0; out_arc < graph.out_deg(node_being_contracted); ++out_arc){
+				assert(graph.out(node_being_contracted, last_out_arc).weight <= graph.out(node_being_contracted, out_arc).weight);
+				last_out_arc = out_arc;
 				unsigned out_node = graph.out(node_being_contracted, out_arc).node;
 				Label newLabels = graph.in(node_being_contracted, in_arc).label.unite(graph.out(node_being_contracted, out_arc).label);
 				Label r = newLabels;
-				r.invert();
+				r = r.invert();
 
 				if(in_node != out_node){
 					if(
@@ -1167,6 +1186,7 @@ ContractionHierarchy ContractionHierarchy::build(
 
 	{
 		sort_arcs_and_remove_multi_and_loop_arcs(node_count, tail, head, weight, input_arc_id, label, log_message);
+
 	}
 
 	{
