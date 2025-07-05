@@ -19,13 +19,17 @@ for line in lines:
     from_lat, from_lon, to_lat, to_lon = map(float, parts[:4])
     is_shortcut = parts[4]
     is_upward = parts[5] == "F"
-    labels = parts[6:] if len(parts) > 5 else []
+    ranks = parts[6]
+    weight = parts[7]
+    labels = parts[8:] if len(parts) > 7 else []
     edges.append({
         "from": (from_lat, from_lon),
         "to": (to_lat, to_lon),
         "is_shortcut": is_shortcut,
         "is_upward": is_upward,
-        "labels": labels
+        "labels": labels,
+        "ranks": ranks,
+        "weight": weight
     })
     lats.extend([from_lat, to_lat])
     lons.extend([from_lon, to_lon])
@@ -42,6 +46,7 @@ for edge in edges:
         color = "#0059ff" if edge["is_upward"] else "#5de2d9"  # blue shades
 
     tooltip = f"{'Shortcut' if edge['is_shortcut']=='S' else 'Original'}"
+    tooltip += f" | {edge['ranks']} | {edge['weight']}"
     if edge["labels"]:
         tooltip += " | " + ", ".join(edge["labels"])
     
@@ -93,7 +98,7 @@ for edge in edges:
         location=center,
         number_of_sides=3,
         radius=5,
-        rotation=rot,
+        rotation=(rot + 180 if edge["is_upward"] else rot),
         color=color,
         fill=True,
         fill_color=color,

@@ -22,7 +22,6 @@ int main(int argc, char*argv[]){
     cout << "Loading OSM data..." << endl;
     auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf("map.osm.pbf");
 	auto tail = invert_inverse_vector(graph.first_out);
-	
 
     cout << "Building Contraction Hierarchy..." << endl;
     auto ch = ContractionHierarchy::build(graph.node_count(), tail, graph.head, graph.travel_time, graph.label);
@@ -31,7 +30,7 @@ int main(int argc, char*argv[]){
     auto geo_position_to_node = GeoPositionToNode(graph.latitude, graph.longitude);
     std::vector<RoutingRequest> requests;
 
-    RoutingRequest reqBuilder = {true, 49.499352, 8.472701, 49.491333, 8.467192, 0, 0, Label(0)};
+    RoutingRequest reqBuilder = {true, 49.499352, 8.472701, 49.491333, 8.467192, 0, 0, Label()};
     reqBuilder.from_node = geo_position_to_node.find_nearest_neighbor_within_radius(reqBuilder.from_latitude, reqBuilder.from_longitude, 1000).id;
     reqBuilder.to_node = geo_position_to_node.find_nearest_neighbor_within_radius(reqBuilder.to_latitude, reqBuilder.to_longitude, 1000).id;
     reqBuilder.profile.set_bit(true, CAR);
@@ -86,6 +85,13 @@ int main(int argc, char*argv[]){
                 cout << "CH path arc: " << ch_path[i] << ", Dijkstra path arc: " << dij_path[i] << endl;
                 return 1;
             }
+        }
+
+        if(ch_path.empty()){
+            cout << "Empty path found for request from (" << request.from_latitude << ", " << request.from_longitude
+                 << ") to (" << request.to_latitude << ", " << request.to_longitude << ") with profile "
+                 << human_readable_label(request.profile.invert()) << endl;
+            return 1;
         }
     }
 

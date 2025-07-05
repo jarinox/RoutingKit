@@ -31,13 +31,11 @@ int main(int argc, char*argv[]){
         unsigned node_count = first_out.size() - 1;
         unsigned arc_count = head.size();
 
-        cout << "Entire graph" << endl;
-
         // Set precision for coordinate output
         cout << fixed << setprecision(6);
 
         auto car_label = Label();
-        car_label.set_bit(true, CAR);
+        car_label.set_bit(false, CAR);
         car_label.set_bit(false, PEDESTRIAN);
         car_label.set_bit(false, BICYCLE);
 
@@ -48,7 +46,7 @@ int main(int argc, char*argv[]){
                 if(graph.label[xy].is_allowed(car_label)) {
                     // Print: lat_start lon_start lat_end lon_end
                     cout << latitude[x] << " " << longitude[x] << " " 
-                     << latitude[y] << " " << longitude[y] << endl;
+                     << latitude[y] << " " << longitude[y] << " A B " << human_readable_label(graph.label[xy]) << endl;
                 }
             }
         }
