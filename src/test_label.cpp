@@ -1,52 +1,47 @@
 #include <routingkit/label.h>
-#include "expect.h"
+#include <gtest/gtest.h>
 
-using namespace RoutingKit;
 using namespace std;
 
+const unsigned int CAR = 0;
+const unsigned int BUS = 1;
+const unsigned int BIKE = 2;
+const unsigned int PEDESTRIAN = 3;
 
-int main(){
-    const unsigned int CAR = 0;
-    const unsigned int BUS = 1;
-    const unsigned int BIKE = 2;
-    const unsigned int PEDESTRIAN = 3;
-
-    Label l1 = Label();
-    
-    // Prohibition of CAR, BUS, and PEDESTRIAN
-    // Allow BIKE
+TEST(LabelTest, SetAndGetBits) {
+    Label l1;
     l1.set_bit(true, CAR);
     l1.set_bit(true, BUS);
     l1.set_bit(true, PEDESTRIAN);
     l1.set_bit(false, BIKE);
 
-    EXPECT_CMP(l1.get_bit(CAR), ==, true);
-    EXPECT_CMP(l1.get_bit(BUS), ==, true);
-    EXPECT_CMP(l1.get_bit(BIKE), ==, false);
-    EXPECT_CMP(l1.get_bit(PEDESTRIAN), ==, true);
-    EXPECT_CMP(l1.get_bit(4), ==, false);
+    EXPECT_EQ(l1.get_bit(CAR), true);
+    EXPECT_EQ(l1.get_bit(BUS), true);
+    EXPECT_EQ(l1.get_bit(BIKE), false);
+    EXPECT_EQ(l1.get_bit(PEDESTRIAN), true);
+    EXPECT_EQ(l1.get_bit(4), false);
+}
 
-    // Restriction label to check, whether BIKE is allowed
-    Label restrictions = Label();
+TEST(LabelTest, IsAllowed) {
+    Label l1;
+    l1.set_bit(true, CAR);
+    l1.set_bit(true, BUS);
+    l1.set_bit(true, PEDESTRIAN);
+    l1.set_bit(false, BIKE);
+
+    Label restrictions;
     restrictions.set_bit(true, BIKE);
+    EXPECT_TRUE(l1.is_allowed(restrictions));
 
-    // Check if the label matches the restrictions
-    EXPECT(l1.is_allowed(restrictions) == true);
-
-    // Set the road restriction to prohibit BIKE and allow CAR
     l1.set_bit(true, BIKE);
     l1.set_bit(false, CAR);
+    EXPECT_FALSE(l1.is_allowed(restrictions));
+    EXPECT_FALSE(l1.is_allowed(l1));
+}
 
-    // Now the label should not match the restrictions
-    EXPECT(l1.is_allowed(restrictions) == false);
-
-    EXPECT(l1.is_allowed(l1) == false);
-
-
-    // Subset and superset checks
-    Label l2 = Label();
-    Label l3 = Label();
-
+TEST(LabelTest, SubsetAndSuperset) {
+    Label l2;
+    Label l3;
     l2.set_bit(true, CAR);
     l2.set_bit(true, BUS);
     l2.set_bit(false, BIKE);
@@ -55,46 +50,60 @@ int main(){
     l3.set_bit(true, BUS);
     l3.set_bit(false, BIKE);
     l3.set_bit(false, PEDESTRIAN);
-    
-    // Both labels are equal, so they are subsets and supersets of each other
-    EXPECT(l2.is_subset_of(l3) == true);
-    EXPECT(l3.is_subset_of(l2) == true);
-    EXPECT(l3.is_superset_of(l2) == true);
-    EXPECT(l2.is_superset_of(l3) == true);
 
-    // Now change l2 to include BIKE which is not in l3
+    EXPECT_TRUE(l2.is_subset_of(l3));
+    EXPECT_TRUE(l3.is_subset_of(l2));
+    EXPECT_TRUE(l3.is_superset_of(l2));
+    EXPECT_TRUE(l2.is_superset_of(l3));
+
     l2.set_bit(true, BIKE);
-    EXPECT(l2.is_subset_of(l3) == false);
-    EXPECT(l3.is_subset_of(l2) == true);
-    EXPECT(l2.is_superset_of(l3) == true);
-    EXPECT(l3.is_superset_of(l2) == false);
-    
-    // Union and intersection checks
+    EXPECT_FALSE(l2.is_subset_of(l3));
+    EXPECT_TRUE(l3.is_subset_of(l2));
+    EXPECT_TRUE(l2.is_superset_of(l3));
+    EXPECT_FALSE(l3.is_superset_of(l2));
+}
+
+TEST(LabelTest, UnionAndIntersection) {
+    Label l2;
+    Label l3;
+    l2.set_bit(true, CAR);
+    l2.set_bit(true, BUS);
+    l2.set_bit(true, BIKE);
+    l2.set_bit(false, PEDESTRIAN);
+    l3.set_bit(true, CAR);
+    l3.set_bit(true, BUS);
+    l3.set_bit(false, BIKE);
+    l3.set_bit(false, PEDESTRIAN);
+
     Label l4 = l2.unite(l3);
-    EXPECT(l4.get_bit(CAR) == true);
-    EXPECT(l4.get_bit(BUS) == true);
-    EXPECT(l4.get_bit(BIKE) == true);
-    EXPECT(l4.get_bit(PEDESTRIAN) == false);
+    EXPECT_TRUE(l4.get_bit(CAR));
+    EXPECT_TRUE(l4.get_bit(BUS));
+    EXPECT_TRUE(l4.get_bit(BIKE));
+    EXPECT_FALSE(l4.get_bit(PEDESTRIAN));
 
     Label l5 = l2.intersect(l3);
-    EXPECT(l5.get_bit(CAR) == true);
-    EXPECT(l5.get_bit(BUS) == true);
-    EXPECT(l5.get_bit(BIKE) == false);
-    EXPECT(l5.get_bit(PEDESTRIAN) == false);
+    EXPECT_TRUE(l5.get_bit(CAR));
+    EXPECT_TRUE(l5.get_bit(BUS));
+    EXPECT_FALSE(l5.get_bit(BIKE));
+    EXPECT_FALSE(l5.get_bit(PEDESTRIAN));
+}
 
-    // Fully restricted labels and inversion
+TEST(LabelTest, FullyRestrictedAndInversion) {
     Label l6 = Label::fully_restricted();
     Label l7 = Label::fully_restricted().invert();
-    Label l8 = Label();
+    Label l8;
+    Label l5;
+    l5.set_bit(true, CAR);
+    l5.set_bit(true, BUS);
+    l5.set_bit(false, BIKE);
+    l5.set_bit(false, PEDESTRIAN);
     Label l9 = l5;
     l9.invert();
-
+    
     for(unsigned i = 0; i < 64; ++i){
-        EXPECT(l6.get_bit(i) == true);
-        EXPECT(l7.get_bit(i) == false);
+        EXPECT_TRUE(l6.get_bit(i));
+        EXPECT_FALSE(l7.get_bit(i));
         l8.set_bit(false, i);
-        EXPECT(!l9.get_bit(i) == l5.get_bit(i));
+        EXPECT_EQ(!l9.get_bit(i), l5.get_bit(i));
     }
-
-	return expect_failed;
 }
