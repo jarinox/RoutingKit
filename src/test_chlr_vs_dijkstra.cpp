@@ -8,6 +8,7 @@
 #include <routingkit/label.h>
 #include <routingkit/io_helper.h>
 #include <routingkit/dijkstra.h>
+#include <gtest/gtest.h>
 
 #include "verify.h"
 
@@ -18,9 +19,17 @@
 using namespace RoutingKit;
 using namespace std;
 
-int main(int argc, char*argv[]){
+unsigned path_length(const std::vector<unsigned>& path, function<unsigned(unsigned)> travel_time) {
+    unsigned length = 0;
+    for(unsigned arc : path){
+        length += travel_time(arc);
+    }
+    return length;
+}
+
+TEST(CHLR, ch_vs_dijkstra) {
     cout << "Loading OSM data..." << endl;
-    auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf("map.osm.pbf");
+    auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf("../map.osm.pbf");
 	auto tail = invert_inverse_vector(graph.first_out);
 
     cout << "Building Contraction Hierarchy..." << endl;
@@ -69,32 +78,23 @@ int main(int argc, char*argv[]){
 
         auto dij_path = dij.get_arc_path_to(request.to_node);
 
-        if(ch_path.size() != dij_path.size()){
-            cout << "Path size mismatch for request from (" << request.from_latitude << ", " << request.from_longitude
-                 << ") to (" << request.to_latitude << ", " << request.to_longitude << ") with profile "
-                 << human_readable_label(request.profile.invert()) << endl;
-            cout << "CH path size: " << ch_path.size() << ", Dijkstra path size: " << dij_path.size() << endl;
-            return 1;
-        }
-
-        for(unsigned i = 0; i < ch_path.size(); ++i){
-            if(ch_path[i] != dij_path[i]){
-                cout << "Path mismatch at index " << i << " for request from (" << request.from_latitude << ", " << request.from_longitude
-                     << ") to (" << request.to_latitude << ", " << request.to_longitude << ") with profile "
-                     << human_readable_label(request.profile.invert()) << endl;
-                cout << "CH path arc: " << ch_path[i] << ", Dijkstra path arc: " << dij_path[i] << endl;
-                return 1;
-            }
-        }
-
-        if(ch_path.empty()){
+        if(ch_path.empty() || dij_path.empty()){
             cout << "Empty path found for request from (" << request.from_latitude << ", " << request.from_longitude
                  << ") to (" << request.to_latitude << ", " << request.to_longitude << ") with profile "
                  << human_readable_label(request.profile.invert()) << endl;
-            return 1;
+            FAIL() << "Empty path found";
+        }
+
+        unsigned ch_length = path_length(ch_path, [&](unsigned arc){ return graph.geo_distance[arc]; });
+        unsigned dij_length = path_length(dij_path, [&](unsigned arc){ return graph.geo_distance[arc]; });
+
+        if(ch_length != dij_length){
+            cout << "Path length mismatch for request from (" << request.from_latitude << ", " << request.from_longitude
+                 << ") to (" << request.to_latitude << ", " << request.to_longitude << ") with profile "
+                 << human_readable_label(request.profile.invert()) << endl;
+            cout << "CH path length: " << ch_length << ", Dijkstra path length: " << dij_length << endl;
+            FAIL() << "Path length mismatch";
         }
     }
-
-
 }
 
