@@ -143,6 +143,21 @@ namespace{
 			});
 		}
 
+		void add_shortcut(unsigned x, unsigned mid_node, unsigned y, unsigned weight, unsigned hop_length, Label label){
+			assert(x != y);
+
+			assert(x < node_count());
+			assert(y < node_count());
+
+			// Add shortcut arc
+			out_[x].push_back({y, weight, hop_length, mid_node, label});
+			in_[y].push_back({x, weight, hop_length, mid_node, label});
+
+			// Sort arcs for weight
+			sort_node_arcs_for_weight(x);
+			sort_node_arcs_for_weight(y);
+		}
+
 		void add_arc_or_reduce_arc_weight(unsigned x, unsigned mid_node, unsigned y, unsigned weight, unsigned hop_length, Label label)
 		{
 			assert(x != y);
@@ -634,7 +649,7 @@ namespace{
 		return 1 + 1000*level + (1000*added_arc_count) / removed_arc_count + (1000*added_hop_count) / removed_hop_count;
 	}
 
-	void contract_node(Graph&graph, ShorterPathTest&shorter_path_test, unsigned node_being_contracted, std::vector<unsigned>&rank){
+	void contract_node(Graph&graph, ShorterPathTest&shorter_path_test, unsigned node_being_contracted, MinIDQueue&queue){
 		unsigned last_in_arc = 0;
 		assert(node_being_contracted < graph.node_count());
 
@@ -642,6 +657,13 @@ namespace{
 		for(unsigned in_arc = 0; in_arc < graph.in_deg(node_being_contracted); ++in_arc){
 			unsigned last_out_arc = 0;
 			unsigned in_node = graph.in(node_being_contracted, in_arc).node;
+
+			// phi(node_being_contracted) < phi(in_node) must hold
+			// therefore skip the node if it is not in the queue and thus has already been contracted
+			// resulting in a node with a lower rank than node_being_contracted
+			if(!queue.contains_id(in_node)){
+				continue;
+			}
 
 			assert(graph.in(node_being_contracted, last_in_arc).weight <= graph.in(node_being_contracted, in_arc).weight);
 			last_in_arc = in_arc;
@@ -651,6 +673,12 @@ namespace{
 				assert(graph.out(node_being_contracted, last_out_arc).weight <= graph.out(node_being_contracted, out_arc).weight);
 				last_out_arc = out_arc;
 				unsigned out_node = graph.out(node_being_contracted, out_arc).node;
+
+				// phi(node_being_contracted) < phi(out_node) must hold
+				if(!queue.contains_id(out_node)){
+					continue;
+				}
+
 				Label newLabels = graph.in(node_being_contracted, in_arc).label.unite(graph.out(node_being_contracted, out_arc).label);
 				Label r = newLabels;
 				r.invert();
@@ -663,14 +691,15 @@ namespace{
 							out_node,
 							graph.in(node_being_contracted, in_arc).weight + graph.out(node_being_contracted, out_arc).weight,
 							r, [&](unsigned bypass_node){
-								return false;
+								return !queue.contains_id(bypass_node);
 							}))
 					{
-						graph.add_arc_or_reduce_arc_weight(
+						graph.add_shortcut(
 							in_node, node_being_contracted, out_node,
 							graph.in(node_being_contracted, in_arc).weight + graph.out(node_being_contracted, out_arc).weight,
 							graph.in(node_being_contracted, in_arc).hop_length + graph.out(node_being_contracted, out_arc).hop_length,
-							newLabels);
+							newLabels
+						);
 					}
 				}
 			}
@@ -796,7 +825,7 @@ namespace {
 			unsigned out_deg = graph.out_deg(node_being_contracted);
 			unsigned in_deg = graph.in_deg(node_being_contracted);
 
-			contract_node(graph, shorter_path_test, node_being_contracted, ch.rank);
+			contract_node(graph, shorter_path_test, node_being_contracted, queue);
 
 			for(auto x:neighbor_list){
 				is_neighbor[x] = false;
@@ -897,7 +926,8 @@ namespace {
 			unsigned out_deg = graph.out_deg(node_being_contracted);
 			unsigned in_deg = graph.in_deg(node_being_contracted);
 
-			contract_node(graph, shorter_path_test, node_being_contracted, ch.rank);
+			MinIDQueue queue(node_count);
+			contract_node(graph, shorter_path_test, node_being_contracted, queue);
 
 			if(log_message){
 				long long current_time = get_micro_time();
