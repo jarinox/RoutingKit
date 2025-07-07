@@ -162,6 +162,11 @@ namespace{
 							continue; // new label is more restrictive, we cannot reduce the arc
 						}
 
+						// TODO: double check that this is correct
+						// In what cases can we reduce the arc?
+						// Are only shortest shortcuts created?
+						// This implementation works a bit different than the pseudocode in the paper.
+
 						if(x_out[out_arc].weight <= weight)
 							return true;
 
@@ -353,6 +358,7 @@ namespace{
 			const GetOutDeg&graph_out_deg,
 			const GetOutArc&graph_out,
 			unsigned bypass,
+			std::function<bool(unsigned)> bypass_node,
 			unsigned len,
 			Label r)
 		{
@@ -377,6 +383,9 @@ namespace{
 				unsigned next_node = graph_out(popped_node, out_arc).node;
 
 				if(next_node == bypass)
+					continue;
+				
+				if(bypass_node(next_node))
 					continue;
 
 				if(!graph_out(popped_node, out_arc).label.is_allowed(r))
@@ -426,7 +435,7 @@ namespace{
 			bypass_node = new_bypass_node;
 		}
 
-		bool does_shorter_or_equal_path_to_target_exist(unsigned t, unsigned len, Label r){
+		bool does_shorter_or_equal_path_to_target_exist(unsigned t, unsigned len, Label r, std::function<bool(unsigned)> bypass = [](unsigned){return false;}){
 			was_backward_pushed.reset_all();
 			backward_queue.clear();
 			backward_queue.push({t, 0});
@@ -455,6 +464,7 @@ namespace{
 							[&](unsigned x){return graph->out_deg(x);},
 							[&](unsigned x, unsigned a){return graph->out(x, a);},
 							bypass_node,
+							bypass,
 							len,
 							r))
 					{
@@ -472,6 +482,7 @@ namespace{
 							[&](unsigned x){return graph->in_deg(x);},
 							[&](unsigned x, unsigned a){return graph->in(x, a);},
 							bypass_node,
+							bypass,
 							len,
 							r))
 					{
@@ -531,6 +542,7 @@ namespace{
 							[&](unsigned x, unsigned a)
 							{ return graph->out(x, a); },
 							bypass,
+							[](unsigned x){return false;},
 							len,
 							r))
 					{
@@ -548,6 +560,7 @@ namespace{
 							[&](unsigned x){return graph->in_deg(x);},
 							[&](unsigned x, unsigned a){return graph->in(x, a);},
 							bypass,
+							[](unsigned x){return false;},
 							len,
 							r)
 					){
@@ -621,13 +634,15 @@ namespace{
 		return 1 + 1000*level + (1000*added_arc_count) / removed_arc_count + (1000*added_hop_count) / removed_hop_count;
 	}
 
-	void contract_node(Graph&graph, ShorterPathTest&shorter_path_test, unsigned node_being_contracted){
+	void contract_node(Graph&graph, ShorterPathTest&shorter_path_test, unsigned node_being_contracted, std::vector<unsigned>&rank){
 		unsigned last_in_arc = 0;
 		assert(node_being_contracted < graph.node_count());
+
 		graph.sort_node_arcs_for_weight(node_being_contracted);
 		for(unsigned in_arc = 0; in_arc < graph.in_deg(node_being_contracted); ++in_arc){
 			unsigned last_out_arc = 0;
 			unsigned in_node = graph.in(node_being_contracted, in_arc).node;
+
 			assert(graph.in(node_being_contracted, last_in_arc).weight <= graph.in(node_being_contracted, in_arc).weight);
 			last_in_arc = in_arc;
 			shorter_path_test.pin_source(in_node, node_being_contracted);
@@ -638,14 +653,18 @@ namespace{
 				unsigned out_node = graph.out(node_being_contracted, out_arc).node;
 				Label newLabels = graph.in(node_being_contracted, in_arc).label.unite(graph.out(node_being_contracted, out_arc).label);
 				Label r = newLabels;
-				r = r.invert();
+				r.invert();
+
+				assert(newLabels != r);
 
 				if(in_node != out_node){
 					if(
 						!shorter_path_test.does_shorter_or_equal_path_to_target_exist(
 							out_node,
 							graph.in(node_being_contracted, in_arc).weight + graph.out(node_being_contracted, out_arc).weight,
-							r))
+							r, [&](unsigned bypass_node){
+								return false;
+							}))
 					{
 						graph.add_arc_or_reduce_arc_weight(
 							in_node, node_being_contracted, out_node,
@@ -691,8 +710,6 @@ namespace {
 		}
 
 		const unsigned node_count = graph.node_count();
-		graph.sort_arcs_for_weight();
-
 		ShorterPathTest shorter_path_test(graph, max_pop_count);
 
 		ch.rank.resize(node_count);
@@ -779,7 +796,7 @@ namespace {
 			unsigned out_deg = graph.out_deg(node_being_contracted);
 			unsigned in_deg = graph.in_deg(node_being_contracted);
 
-			contract_node(graph, shorter_path_test, node_being_contracted);
+			contract_node(graph, shorter_path_test, node_being_contracted, ch.rank);
 
 			for(auto x:neighbor_list){
 				is_neighbor[x] = false;
@@ -880,7 +897,7 @@ namespace {
 			unsigned out_deg = graph.out_deg(node_being_contracted);
 			unsigned in_deg = graph.in_deg(node_being_contracted);
 
-			contract_node(graph, shorter_path_test, node_being_contracted);
+			contract_node(graph, shorter_path_test, node_being_contracted, ch.rank);
 
 			if(log_message){
 				long long current_time = get_micro_time();
