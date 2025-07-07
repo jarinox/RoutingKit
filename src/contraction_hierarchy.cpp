@@ -158,19 +158,19 @@ namespace{
 				// Does arc exist?
 				for(unsigned out_arc = 0; out_arc < x_out.size(); ++out_arc){
 					if(x_out[out_arc].node == y){
-						if(!label.is_subset_of(x_out[out_arc].label)){
-							continue; // new label is more restrictive, we cannot reduce the arc
+						// Either arc is shorter but more restrictive or longer but less restrictive
+						// In this case we need to add a new arc
+						if((weight < x_out[out_arc].weight && !label.is_subset_of(x_out[out_arc].label))
+						|| (weight > x_out[out_arc].weight && !label.is_superset_of(x_out[out_arc].label))){
+							return false;
 						}
 
-						// TODO: double check that this is correct
-						// In what cases can we reduce the arc?
-						// Are only shortest shortcuts created?
-						// This implementation works a bit different than the pseudocode in the paper.
-
-						if(x_out[out_arc].weight <= weight)
+						// A shorter/equal and less/same restrictive arc already exists
+						if(x_out[out_arc].weight <= weight && label.is_superset_of(x_out[out_arc].label))
 							return true;
 
-						// We need to adjust the weights
+						
+						// Reduce existing arc
 						for (unsigned in_arc = 0; in_arc < y_in.size(); ++in_arc)
 						{
 							if (y_in[in_arc].node == x)
@@ -178,7 +178,7 @@ namespace{
 								x_out[out_arc].weight = weight;
 								x_out[out_arc].hop_length = hop_length;
 								x_out[out_arc].mid_node = mid_node;
-								x_out[out_arc].label = label;
+								x_out[out_arc].label = label; // new label is applied as it is less restrictive
 								y_in[in_arc].weight = weight;
 								y_in[in_arc].hop_length = hop_length;
 								y_in[in_arc].mid_node = mid_node;
