@@ -659,25 +659,19 @@ namespace{
 			unsigned in_node = graph.in(node_being_contracted, in_arc).node;
 
 			// phi(node_being_contracted) < phi(in_node) must hold
-			// therefore skip the node if it is not in the queue and thus has already been contracted
-			// resulting in a node with a lower rank than node_being_contracted
-			if(!queue.contains_id(in_node)){
-				continue;
-			}
+			assert(queue.contains_id(in_node) && "in_node must not be contracted before node_being_contracted");
 
 			assert(graph.in(node_being_contracted, last_in_arc).weight <= graph.in(node_being_contracted, in_arc).weight);
 			last_in_arc = in_arc;
-			shorter_path_test.pin_source(in_node, node_being_contracted);
 			graph.sort_node_arcs_for_weight(in_node);
+			shorter_path_test.pin_source(in_node, node_being_contracted);
 			for(unsigned out_arc = 0; out_arc < graph.out_deg(node_being_contracted); ++out_arc){
 				assert(graph.out(node_being_contracted, last_out_arc).weight <= graph.out(node_being_contracted, out_arc).weight);
 				last_out_arc = out_arc;
 				unsigned out_node = graph.out(node_being_contracted, out_arc).node;
 
 				// phi(node_being_contracted) < phi(out_node) must hold
-				if(!queue.contains_id(out_node)){
-					continue;
-				}
+				assert(queue.contains_id(out_node) && "out_node must not be contracted before node_being_contracted");
 
 				Label newLabels = graph.in(node_being_contracted, in_arc).label.unite(graph.out(node_being_contracted, out_arc).label);
 				Label r = newLabels;

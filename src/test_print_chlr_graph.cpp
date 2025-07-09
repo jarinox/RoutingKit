@@ -19,13 +19,20 @@ using namespace RoutingKit;
 using namespace std;
 
 int main(int argc, char*argv[]){
-    auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf("map.osm.pbf");
+    auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf("b.osm.pbf");
 	auto tail = invert_inverse_vector(graph.first_out);
 
     auto ch = ContractionHierarchy::build(graph.node_count(), tail, graph.head, graph.travel_time, graph.label);
 
     unsigned arcs_count[2] = {0, 0};
+
+    cout << "BEGIN NODES" << endl;
+    for(unsigned i = 0; i < ch.node_count(); ++i) {
+        cout << graph.latitude[i] << " " << graph.longitude[i] << " "
+             << ch.rank[i] << endl;
+    }
     
+    cout << "BEGIN EDGES" << endl;
     for(unsigned i = 0; i < 2; ++i) {
         auto side = (i == 0) ? ch.forward : ch.backward;
         for (unsigned tail_node = 0; tail_node + 1 < side.first_out.size(); ++tail_node) {
@@ -38,7 +45,7 @@ int main(int argc, char*argv[]){
                     << graph.latitude[ch.order[tail_node]] << " " << graph.longitude[ch.order[tail_node]] << " "
                     << (is_original ? "O" : "S") << " "
                     << (i == 0 ? "F" : "B") << " "
-                    << ch.rank[ch.order[tail_node]] << "-" << ch.rank[ch.order[h]] << " "
+                    << tail_node << "-" << h << " "
                     << side.weight[arc] << " "
                     << human_readable_label(side.label[arc]) << endl;
             }
