@@ -33,7 +33,7 @@ TEST(CHLR, ch_vs_dijkstra) {
 	auto tail = invert_inverse_vector(graph.first_out);
 
     cout << "Building Contraction Hierarchy..." << endl;
-    auto ch = ContractionHierarchy::build(graph.node_count(), tail, graph.head, graph.travel_time, graph.label);
+    auto ch = ContractionHierarchy::build(graph.node_count(), tail, graph.head, graph.geo_distance, graph.label);
 
     auto geo_position_to_node = GeoPositionToNode(graph.latitude, graph.longitude);
     std::vector<RoutingRequest> requests;
