@@ -679,13 +679,13 @@ namespace{
 
 				assert(newLabels != r);
 
-				if(in_node != out_node){
+ 				if(in_node != out_node){
 					if(
 						!shorter_path_test.does_shorter_or_equal_path_to_target_exist(
 							out_node,
 							graph.in(node_being_contracted, in_arc).weight + graph.out(node_being_contracted, out_arc).weight,
 							r, [&](unsigned bypass_node){
-								return !queue.contains_id(bypass_node);
+								return !queue.contains_id(bypass_node) && bypass_node != in_node && bypass_node != out_node;
 							}))
 					{
 						graph.add_shortcut(
@@ -766,6 +766,12 @@ namespace {
 
 		while(!queue.empty()){
 			unsigned node_being_contracted = queue.pop().id;
+
+			if(contracted_node_count == 17){
+				if(log_message){
+					log_message("Reached 26 contracted nodes, stopping further contraction.");
+				}
+			}
 
 			ch.rank[node_being_contracted] = contracted_node_count;
 			ch.order[contracted_node_count] = node_being_contracted;
@@ -1233,12 +1239,6 @@ ContractionHierarchy ContractionHierarchy::build(
 	{
 		Graph graph(node_count, tail, head, weight, label);
 		build_ch_and_order(graph, ch, ch_extra, max_pop_count, log_message);
-	}
-
-	{
-		// This optimizes the order in a postprocessing step
-		sort_ch_arcs_and_build_first_out_arrays(ch, ch_extra, log_message);
-		optimize_order_for_cache(ch, ch_extra, log_message);
 	}
 
 	{
