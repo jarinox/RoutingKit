@@ -65,6 +65,9 @@ class CHLRGraph {
               const std::vector<float>& longitude, std::vector<Label>& label);
 
     std::vector<CHLRNode> nodes;
+
+    void remove_incident_arcs(unsigned node_id);
+    void add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
 };
 
 class CHLR {

@@ -14,22 +14,12 @@ CHLRGraph::CHLRGraph(unsigned node_count, const std::vector<unsigned> &tail,
     }
 
     for (unsigned i = 0; i < tail.size(); ++i) {
-        nodes[tail[i]].out_arcs.push_back({
-            .other_node = head[i],
-            .mid_node = invalid_id,  // no shortcut
-            .weight = weight[i],
-            .label = label[i],
-        });
-        nodes[head[i]].in_arcs.push_back({
-            .other_node = tail[i],
-            .mid_node = invalid_id,
-            .weight = weight[i],
-            .label = label[i],
-        });
+        add_arc(tail[i], invalid_id, head[i], weight[i], label[i]);
     }
 }
 
 void CHLR::build() {
+    CHLRGraph contraction_graph = this->graph;
     order.resize(graph.nodes.size());
 
     MinIDQueue queue(graph.nodes.size());
@@ -45,8 +35,6 @@ void CHLR::build() {
         graph.nodes[node_id].rank = contracted_node_count;
 
         CHLRNode &node = graph.nodes[node_id];
-        node.rank = contracted_node_count;
-
 
         // Raise neighbour levels for all arcs connected to this node
         // This is used for estimating node importance
@@ -104,37 +92,14 @@ void CHLR::build() {
                     });
 
                 if (shortcut_weight < witness_weight) {
-                    // Create a shortcut in graph
-                    graph.nodes[in_arc.other_node].out_arcs.push_back({
-                        .other_node = out_arc.other_node,
-                        .mid_node = node_id,
-                        .weight = shortcut_weight,
-                        .label = newLabel,
-                    });
-
-                    graph.nodes[out_arc.other_node].in_arcs.push_back({
-                        .other_node = in_arc.other_node,
-                        .mid_node = node_id,
-                        .weight = shortcut_weight,
-                        .label = newLabel,
-                    });
+                    // Create a shortcuts in graph
+                    graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                    contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
                 }
             }
         }
 
-        // Remove only non-shortcut edges from search graph
-        auto& in_arcs = graph.nodes[node_id].in_arcs;
-        in_arcs.erase(
-            std::remove_if(in_arcs.begin(), in_arcs.end(),
-                [](const CHLRArc& arc) { return arc.mid_node == invalid_id; }),
-            in_arcs.end()
-        );
-        auto& out_arcs = graph.nodes[node_id].out_arcs;
-        out_arcs.erase(
-            std::remove_if(out_arcs.begin(), out_arcs.end(),
-                [](const CHLRArc& arc) { return arc.mid_node == invalid_id; }),
-            out_arcs.end()
-        );
+        graph.remove_incident_arcs(node_id);
     }
 }
 
@@ -205,4 +170,42 @@ unsigned DijkstraLR::witness_search(
     }
 
     return std::numeric_limits<unsigned>::max();
+}
+
+
+void CHLRGraph::remove_incident_arcs(unsigned node_id) {
+    auto &node = nodes[node_id];
+    for (const auto &in_arc : node.in_arcs) {
+        auto &other_node = nodes[in_arc.other_node];
+        other_node.out_arcs.erase(
+            std::remove_if(other_node.out_arcs.begin(), other_node.out_arcs.end(),
+                           [&](const CHLRArc &arc) { return arc.other_node == node_id; }),
+            other_node.out_arcs.end());
+    }
+    for (const auto &out_arc : node.out_arcs) {
+        auto &other_node = nodes[out_arc.other_node];
+        other_node.in_arcs.erase(
+            std::remove_if(other_node.in_arcs.begin(), other_node.in_arcs.end(),
+                           [&](const CHLRArc &arc) { return arc.other_node == node_id; }),
+            other_node.in_arcs.end());
+    }
+    node.in_arcs.clear();
+    node.out_arcs.clear();
+}
+
+
+void CHLRGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
+    nodes[from].out_arcs.push_back({
+        .other_node = to,
+        .mid_node = mid_node,
+        .weight = weight,
+        .label = label,
+    });
+
+    nodes[to].in_arcs.push_back({
+        .other_node = from,
+        .mid_node = mid_node,
+        .weight = weight,
+        .label = label,
+    });
 }
