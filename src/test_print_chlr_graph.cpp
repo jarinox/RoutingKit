@@ -22,7 +22,7 @@ int main(int argc, char*argv[]){
     auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf("b.osm.pbf");
 	auto tail = invert_inverse_vector(graph.first_out);
 
-    auto ch = ContractionHierarchy::build(graph.node_count(), tail, graph.head, graph.travel_time, graph.label);
+    auto ch = ContractionHierarchy::build(graph.node_count(), tail, graph.head, graph.geo_distance, graph.label);
 
     unsigned arcs_count[2] = {0, 0};
 

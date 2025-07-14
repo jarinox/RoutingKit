@@ -1233,12 +1233,17 @@ ContractionHierarchy ContractionHierarchy::build(
 
 	{
 		sort_arcs_and_remove_multi_and_loop_arcs(node_count, tail, head, weight, input_arc_id, label, log_message);
-
 	}
 
 	{
 		Graph graph(node_count, tail, head, weight, label);
 		build_ch_and_order(graph, ch, ch_extra, max_pop_count, log_message);
+	}
+
+	{
+		// This optimizes the order in a postprocessing step
+		sort_ch_arcs_and_build_first_out_arrays(ch, ch_extra, log_message);
+		optimize_order_for_cache(ch, ch_extra, log_message);
 	}
 
 	{

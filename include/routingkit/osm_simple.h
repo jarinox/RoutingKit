@@ -100,10 +100,6 @@ struct SimpleOSMMultiProfileRoutingGraph{
 	std::vector<float>longitude;
 	std::vector<Label>label;
 	
-	// Multi-profile specific data
-	std::vector<unsigned>travel_time; // Only meaningful for car routes
-	std::vector<unsigned char>bicycle_comfort_level; // Only meaningful for bicycle routes
-	
 	// Turn restrictions (primarily for cars)
 	std::vector<unsigned>forbidden_turn_from_arc;
 	std::vector<unsigned>forbidden_turn_to_arc;

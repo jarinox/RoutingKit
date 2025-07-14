@@ -261,19 +261,6 @@ SimpleOSMMultiProfileRoutingGraph simple_load_osm_multi_profile_routing_graph_fr
 	ret.forbidden_turn_to_arc = std::move(routing_graph.forbidden_turn_to_arc);
 
 	unsigned arc_count = ret.head.size();
-	ret.travel_time.resize(arc_count);
-	ret.bicycle_comfort_level.resize(arc_count);
-
-	for(unsigned a = 0; a < arc_count; ++a) {
-		unsigned way_id = routing_graph.way[a];
-		ret.bicycle_comfort_level[a] = way_bicycle_comfort[way_id];
-		
-		// Calculate travel time (primarily for cars)
-		ret.travel_time[a] = ret.geo_distance[a];
-		ret.travel_time[a] *= 18000; // Convert to travel time units
-		ret.travel_time[a] /= way_speed[way_id];
-		ret.travel_time[a] /= 5;
-	}
 
 	if(log_message) {
 		unsigned car_arc_count = 0, bicycle_arc_count = 0, pedestrian_arc_count = 0;

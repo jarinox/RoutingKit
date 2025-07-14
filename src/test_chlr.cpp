@@ -19,10 +19,9 @@ using namespace std;
 
 int main(int argc, char*argv[]){
     auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf("map.osm.pbf");
-	auto tail = invert_inverse_vector(graph.first_out);
-		
-    auto ch = ContractionHierarchy::build(graph.node_count(), tail, graph.head, graph.travel_time, graph.label);
-    //check_contraction_hierarchy_for_errors(ch);
+    auto tail = invert_inverse_vector(graph.first_out);
+
+    auto ch = ContractionHierarchy::build(graph.node_count(), tail, graph.head, graph.geo_distance, graph.label);
 
     auto geo_position_to_node = GeoPositionToNode(graph.latitude, graph.longitude);
     RoutingRequest request = parse_routing_request(argc, argv, geo_position_to_node);
