@@ -84,25 +84,44 @@ class CHLR {
 unsigned estimate_node_importance(const CHLRGraph& graph, unsigned node_id);
 
 class CHLRQuery {
-   public:
-    CHLRGraph forward_graph;
-    CHLRGraph backward_graph;
-    MinIDQueue forward_queue;
-    MinIDQueue backward_queue;
-    std::vector<unsigned> forward_distance;
-    std::vector<unsigned> backward_distance;
-    TimestampFlags was_forward_pushed;
-    TimestampFlags was_backward_pushed;
-    std::vector<unsigned> forward_predecessor_node;
-    std::vector<unsigned> backward_predecessor_node;
-    std::vector<unsigned> forward_predecessor_arc;
-    std::vector<unsigned> backward_predecessor_arc;
-
-    unsigned meeting_node;
+private:
+    CHLRGraph graph;
 
     Label restriction;
     unsigned start_node;
     unsigned end_node;
+
+    std::vector<unsigned> _forward_predecessor_node;
+    std::vector<unsigned> _backward_predecessor_node;
+    std::vector<unsigned> _forward_predecessor_arc;
+    std::vector<unsigned> _backward_predecessor_arc;
+
+    void extract_directional_graphs();
+public:
+    CHLRGraph forward;
+    CHLRGraph backward;
+    unsigned meeting_node;
+
+    CHLRQuery(CHLRGraph& graph) : graph(graph) {
+        extract_directional_graphs();
+    }
+
+    void set(unsigned start_node, unsigned end_node, Label restriction) {
+        this->start_node = start_node;
+        this->end_node = end_node;
+        this->restriction = restriction;
+    }
+    
+    void settle(MinIDQueue& queue, std::vector<unsigned>& distance,
+                std::vector<unsigned>& predecessor_node,
+                std::vector<unsigned>& predecessor_arc,
+                TimestampFlags& was_pushed, bool& finished,
+                MinIDQueue& other_queue, std::vector<unsigned>& other_distance,
+                std::vector<unsigned>& other_predecessor_node,
+                std::vector<unsigned>& other_predecessor_arc,
+                TimestampFlags& other_was_pushed, unsigned& meeting_node,
+                bool& search_forward, CHLRGraph& graph, Label restriction);
+    void run();
 
     std::vector<CHLRNode> get_node_path();
     std::vector<CHLRArc> get_arc_path();
