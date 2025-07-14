@@ -25,7 +25,7 @@ bool file_exists(const std::string& filename) {
     return file.good();
 }
 
-TEST(CHLR, witness_search) {
+TEST(CHLR_alt, witness_search) {
     std::string pbf_file = "b.osm.pbf";
     if(!file_exists("b.osm.pbf")) {
         pbf_file = "../" + pbf_file;
@@ -65,3 +65,36 @@ TEST(CHLR, witness_search) {
     EXPECT_EQ(distance, reference_distance) << "Witness search distance does not match Dijkstra's distance.";
 }
 
+TEST(CHLR_alt, add_arc) {
+    CHLRGraph graph;
+    graph.nodes.resize(3);
+
+    graph.add_arc(0, invalid_id, 1, 10, Label());
+    graph.add_arc(1, invalid_id, 2, 11, Label());
+    graph.add_arc(2, invalid_id, 0, 12, Label());
+
+    ASSERT_EQ(graph.nodes[0].out_arcs[0].weight, 10);
+    ASSERT_EQ(graph.nodes[1].in_arcs[0].weight, 10);
+    ASSERT_EQ(graph.nodes[1].out_arcs[0].weight, 11);
+    ASSERT_EQ(graph.nodes[2].in_arcs[0].weight, 11);
+    ASSERT_EQ(graph.nodes[2].out_arcs[0].weight, 12);
+    ASSERT_EQ(graph.nodes[0].in_arcs[0].weight, 12);
+}
+
+
+TEST(CHLR_alt, remove_incident_arc) {
+    CHLRGraph graph;
+    graph.nodes.resize(3);
+
+    graph.add_arc(0, invalid_id, 1, 10, Label());
+    graph.add_arc(1, invalid_id, 2, 11, Label());
+    graph.add_arc(2, invalid_id, 0, 12, Label());
+    graph.remove_incident_arcs(1);
+
+    ASSERT_EQ(graph.nodes[0].in_arcs.size(), 1); // incoming from 2
+    ASSERT_EQ(graph.nodes[0].out_arcs.size(), 0);
+    ASSERT_EQ(graph.nodes[1].in_arcs.size(), 0);
+    ASSERT_EQ(graph.nodes[1].out_arcs.size(), 0);;
+    ASSERT_EQ(graph.nodes[2].in_arcs.size(), 0);
+    ASSERT_EQ(graph.nodes[2].out_arcs.size(), 1); // outgoing to 0
+}
