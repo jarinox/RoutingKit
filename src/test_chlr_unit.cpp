@@ -150,3 +150,43 @@ TEST(CHLR_alt, building_order_and_shortcuts){
     ASSERT_EQ(graph.nodes[4].in_arcs.size(), 2);
     ASSERT_EQ(graph.nodes[4].out_arcs.size(), 2);
 }
+
+
+TEST(CHLR_alt, extract_forward_and_backward_graphs) {
+    CHLRGraph graph;
+    graph.nodes.resize(5);
+
+    Label car_label = Label();
+    car_label.set_bit(true, CAR);
+
+    Label pedestrian_car_label = Label();
+    pedestrian_car_label.set_bit(true, PEDESTRIAN);
+    pedestrian_car_label.set_bit(true, CAR);
+
+    graph.add_arc(0, invalid_id, 1, 10, car_label); 
+    graph.add_arc(1, invalid_id, 2, 20, car_label);
+    graph.add_arc(2, invalid_id, 3, 30, pedestrian_car_label); 
+    graph.add_arc(3, invalid_id, 4, 40, pedestrian_car_label); 
+    graph.add_arc(4, invalid_id, 0, 50, car_label);
+
+    CHLR chlr(graph);
+    chlr.build();
+
+    CHLRQuery query(chlr.graph);
+    for(unsigned i = 0; i < chlr.graph.nodes.size(); ++i) {
+        ASSERT_EQ(query.forward.nodes[i].rank, chlr.graph.nodes[i].rank);
+        ASSERT_EQ(query.backward.nodes[i].rank, chlr.graph.nodes[i].rank);
+        ASSERT_EQ(query.forward.nodes[i].lat, chlr.graph.nodes[i].lat);
+        ASSERT_EQ(query.backward.nodes[i].lat, chlr.graph.nodes[i].lat);
+        ASSERT_EQ(query.forward.nodes[i].lon, chlr.graph.nodes[i].lon);
+        ASSERT_EQ(query.backward.nodes[i].lon, chlr.graph.nodes[i].lon);
+
+        for(auto& arc : query.forward.nodes[i].out_arcs) {
+            ASSERT_LT(query.forward.nodes[i].rank, query.forward.nodes[arc.other_node].rank);
+        }
+
+        for(auto& arc : query.backward.nodes[i].out_arcs) {
+            ASSERT_LT(query.backward.nodes[i].rank, query.backward.nodes[arc.other_node].rank);
+        }
+    }
+}
