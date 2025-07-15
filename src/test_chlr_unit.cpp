@@ -98,3 +98,55 @@ TEST(CHLR_alt, remove_incident_arc) {
     ASSERT_EQ(graph.nodes[2].in_arcs.size(), 0);
     ASSERT_EQ(graph.nodes[2].out_arcs.size(), 1); // outgoing to 0
 }
+
+TEST(CHLR_alt, building_order_and_shortcuts){
+    CHLRGraph graph;
+    graph.nodes.resize(5);
+
+    Label car_label = Label();
+    car_label.set_bit(true, CAR);
+
+    Label pedestrian_car_label = Label();
+    pedestrian_car_label.set_bit(true, PEDESTRIAN);
+    pedestrian_car_label.set_bit(true, CAR);
+
+    graph.add_arc(0, invalid_id, 1, 10, car_label); 
+    graph.add_arc(1, invalid_id, 2, 20, car_label);
+    graph.add_arc(2, invalid_id, 3, 30, pedestrian_car_label); 
+    graph.add_arc(3, invalid_id, 4, 40, pedestrian_car_label); 
+    graph.add_arc(4, invalid_id, 0, 50, car_label);
+
+    CHLR chlr(graph);
+    chlr.build();
+
+    ASSERT_EQ(chlr.order.size(), 5);
+    for (unsigned i = 0; i < chlr.order.size(); ++i) {
+        ASSERT_EQ(graph.nodes[chlr.order[i]].rank, i + 1);
+    }
+
+    ASSERT_EQ(graph.nodes[0].rank, 1);
+    ASSERT_EQ(graph.nodes[2].rank, 2);
+    ASSERT_EQ(graph.nodes[3].rank, 3);
+    ASSERT_EQ(graph.nodes[4].rank, 4);
+    ASSERT_EQ(graph.nodes[1].rank, 5);
+
+    ASSERT_EQ(graph.nodes[4].out_arcs[1].mid_node, 0);
+    ASSERT_EQ(graph.nodes[1].in_arcs[1].mid_node, 0);
+    ASSERT_EQ(graph.nodes[1].in_arcs[1].label, car_label);
+    ASSERT_EQ(graph.nodes[1].out_arcs[1].mid_node, 2);
+    ASSERT_EQ(graph.nodes[3].in_arcs[1].mid_node,  2);
+    ASSERT_EQ(graph.nodes[1].out_arcs[2].mid_node, 3);
+    ASSERT_EQ(graph.nodes[4].in_arcs[1].mid_node, 3);
+    ASSERT_EQ(graph.nodes[4].in_arcs[1].label, pedestrian_car_label);
+
+    ASSERT_EQ(graph.nodes[0].in_arcs.size(), 1);
+    ASSERT_EQ(graph.nodes[0].out_arcs.size(), 1);
+    ASSERT_EQ(graph.nodes[1].in_arcs.size(), 2);
+    ASSERT_EQ(graph.nodes[1].out_arcs.size(), 3);
+    ASSERT_EQ(graph.nodes[2].in_arcs.size(), 1);
+    ASSERT_EQ(graph.nodes[2].out_arcs.size(), 1);
+    ASSERT_EQ(graph.nodes[3].in_arcs.size(), 2);
+    ASSERT_EQ(graph.nodes[3].out_arcs.size(), 1);
+    ASSERT_EQ(graph.nodes[4].in_arcs.size(), 2);
+    ASSERT_EQ(graph.nodes[4].out_arcs.size(), 2);
+}
