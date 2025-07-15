@@ -79,7 +79,6 @@ class CHLR {
     CHLR(CHLRGraph& graph) : graph(graph) { order.resize(graph.nodes.size()); }
 
     void build();
-    void extract_forward_and_backward_graphs();
 };
 
 unsigned estimate_node_importance(const CHLRGraph& graph, unsigned node_id);

@@ -116,20 +116,8 @@ unsigned estimate_node_importance(const CHLRGraph &graph, unsigned node_id) {
     unsigned arcs_removed = in_deg + out_deg;
     unsigned edge_difference = estimated_shortcuts > arcs_removed ? estimated_shortcuts - arcs_removed : 0;
 
-    unsigned neighbor_level_sum = 0;
-    std::set<unsigned> neighbors;
-    for (const auto &arc : node.in_arcs) {
-        neighbors.insert(arc.other_node);
-        neighbor_level_sum += graph.nodes[arc.other_node].neighbour_level;
-    }
-    for (const auto &arc : node.out_arcs) {
-        if (neighbors.find(arc.other_node) == neighbors.end()) {
-            neighbor_level_sum += graph.nodes[arc.other_node].neighbour_level;
-        }
-    }
-
     // Combine factors (weights can be tuned)
-    return 1000 * edge_difference + 100 * neighbor_level_sum + in_deg + out_deg;
+    return 1000 * edge_difference + 100 * node.neighbour_level + in_deg + out_deg;
 }
 
 unsigned DijkstraLR::witness_search(
