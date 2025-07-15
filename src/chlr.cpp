@@ -66,10 +66,6 @@ void CHLR::build() {
 
         assert(!queue.contains_id(node_id));
 
-        std::cout << "Contracting node " << node_id
-             << " with arc combinations " << node.in_arcs.size() * node.out_arcs.size()
-             << ", contracted nodes: " << contracted_node_count
-             << ", queue size: " << queue.size() << std::endl;
 
         // Contract the node
         node.sort_arcs_for_weight();
@@ -98,7 +94,6 @@ void CHLR::build() {
                     });
 
                 if (shortcut_weight < witness_weight) {
-                    // Create a shortcuts in graph
                     graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
                     contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
                 }
@@ -185,19 +180,32 @@ unsigned DijkstraLR::witness_search(
 
 void CHLRGraph::remove_incident_arcs(unsigned node_id) {
     auto &node = nodes[node_id];
-    for (const auto &in_arc : node.in_arcs) {
-        auto &other_node = nodes[in_arc.other_node];
-        other_node.out_arcs.erase(
-            std::remove_if(other_node.out_arcs.begin(), other_node.out_arcs.end(),
+
+    // Collect affected nodes for in_arcs and out_arcs separately
+    std::unordered_set<unsigned> in_affected_nodes;
+    std::unordered_set<unsigned> out_affected_nodes;
+
+    for (const auto &in_arc : node.in_arcs)
+        in_affected_nodes.insert(in_arc.other_node);
+    for (const auto &out_arc : node.out_arcs)
+        out_affected_nodes.insert(out_arc.other_node);
+
+    // Remove arcs from in_affected_nodes' out_arcs
+    for (unsigned other_id : in_affected_nodes) {
+        auto &out_arcs = nodes[other_id].out_arcs;
+        out_arcs.erase(
+            std::remove_if(out_arcs.begin(), out_arcs.end(),
                            [&](const CHLRArc &arc) { return arc.other_node == node_id; }),
-            other_node.out_arcs.end());
+            out_arcs.end());
     }
-    for (const auto &out_arc : node.out_arcs) {
-        auto &other_node = nodes[out_arc.other_node];
-        other_node.in_arcs.erase(
-            std::remove_if(other_node.in_arcs.begin(), other_node.in_arcs.end(),
+
+    // Remove arcs from out_affected_nodes' in_arcs
+    for (unsigned other_id : out_affected_nodes) {
+        auto &in_arcs = nodes[other_id].in_arcs;
+        in_arcs.erase(
+            std::remove_if(in_arcs.begin(), in_arcs.end(),
                            [&](const CHLRArc &arc) { return arc.other_node == node_id; }),
-            other_node.in_arcs.end());
+            in_arcs.end());
     }
 
     node.in_arcs.clear();
@@ -293,40 +301,55 @@ void CHLRQuery::run() {
     was_forward_pushed.set(start_node);
     was_backward_pushed.set(end_node);
 
-    bool forward_finished = false;
-    bool backward_finished = false;
 
+    unsigned best_distance = std::numeric_limits<unsigned>::max();
     bool search_forward = true;
 
-    while((!forward_finished || !backward_finished) && meeting_node == invalid_id) {
+    while(true) {
         if(search_forward) {
+            if(forward_queue.empty()) {
+                search_forward = false;
+                continue;
+            }
             settle(
                 forward_queue, forward_distance, forward_predecessor_node,
-                forward_predecessor_arc, was_forward_pushed, forward_finished,
+                forward_predecessor_arc, was_forward_pushed, /*finished*/search_forward,
                 backward_queue, backward_distance, backward_predecessor_node,
                 backward_predecessor_arc, was_backward_pushed, meeting_node,
                 search_forward, forward, restriction
             );
         } else {
+            if(backward_queue.empty()) {
+                search_forward = true;
+                continue;
+            }
             settle(
                 backward_queue, backward_distance, backward_predecessor_node,
-                backward_predecessor_arc, was_backward_pushed, backward_finished,
+                backward_predecessor_arc, was_backward_pushed, /*finished*/search_forward,
                 forward_queue, forward_distance, forward_predecessor_node,
                 forward_predecessor_arc, was_forward_pushed, meeting_node,
                 search_forward, backward, restriction
             );
         }
-        
 
-        if(forward_queue.empty()) {
-            forward_finished = true;
-            search_forward = false;
+        // Update best_distance if a meeting_node was found
+        if(meeting_node != invalid_id) {
+            unsigned candidate = forward_distance[meeting_node] + backward_distance[meeting_node];
+            if(candidate < best_distance)
+                best_distance = candidate;
         }
 
-        if(backward_queue.empty()) {
-            backward_finished = true;
-            search_forward = true;
+        // Get current min keys (if queues not empty)
+        unsigned min_forward = forward_queue.empty() ? std::numeric_limits<unsigned>::max() : forward_queue.peek().key;
+        unsigned min_backward = backward_queue.empty() ? std::numeric_limits<unsigned>::max() : backward_queue.peek().key;
+
+        // Terminate if both queues are empty (no path), or min keys exceed best_distance
+        if((forward_queue.empty() && backward_queue.empty()) || (min_forward + min_backward >= best_distance)) {
+            break;
         }
+
+        // Alternate search direction
+        search_forward = !search_forward;
     }
 
     _forward_predecessor_arc = std::move(forward_predecessor_arc);
@@ -347,16 +370,13 @@ void CHLRQuery::settle(
     TimestampFlags &other_was_pushed, unsigned &meeting_node,
     bool &search_forward, CHLRGraph &graph, Label restriction) {
 
-    assert(!finished);
-    assert(!queue.empty());
-
     auto p = queue.pop();
     unsigned current_node = p.id;
     unsigned current_distance = p.key;
 
     if (other_was_pushed.is_set(current_node)) {
         meeting_node = current_node;
-        return; // Already processed by other search, meeting node found
+        return;
     }
 
     was_pushed.set(current_node);
@@ -395,7 +415,6 @@ std::vector<CHLRArc> CHLRQuery::get_arc_path() {
     if (meeting_node == invalid_id) return path;
 
     unsigned current_node = meeting_node;
-    
     while (current_node != start_node) {
         unsigned predecessor = _forward_predecessor_node[current_node];
         unsigned arc_index = _forward_predecessor_arc[current_node];
@@ -426,7 +445,6 @@ std::vector<CHLRArc> CHLRQuery::get_arc_path() {
     std::reverse(path.begin(), path.end());
 
     current_node = meeting_node;
-
     while (current_node != end_node) {
         unsigned predecessor = _backward_predecessor_node[current_node];
         unsigned arc_index = _backward_predecessor_arc[current_node];

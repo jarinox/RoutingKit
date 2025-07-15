@@ -11,6 +11,7 @@
 #include <limits>
 #include <set>
 #include <vector>
+#include <unordered_set>
 
 using namespace RoutingKit;
 
@@ -22,7 +23,7 @@ class CHLRArc {
     unsigned weight;
     Label label;
 
-    bool is_shortcut() { return mid_node != invalid_id; }
+    bool is_shortcut() const { return mid_node != invalid_id; }
 };
 
 class CHLRNode {
