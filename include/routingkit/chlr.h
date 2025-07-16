@@ -68,7 +68,7 @@ class CHLRGraph {
     std::vector<CHLRNode> nodes;
 
     void remove_incident_arcs(unsigned node_id);
-    void add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
+    void add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label, bool shortcut_reduce = false);
 };
 
 class CHLR {
@@ -115,7 +115,7 @@ public:
     void settle(MinIDQueue& queue, std::vector<unsigned>& distance,
                 std::vector<unsigned>& predecessor_node,
                 std::vector<unsigned>& predecessor_arc,
-                TimestampFlags& was_pushed, bool& finished,
+                TimestampFlags& was_pushed,
                 MinIDQueue& other_queue, std::vector<unsigned>& other_distance,
                 std::vector<unsigned>& other_predecessor_node,
                 std::vector<unsigned>& other_predecessor_arc,

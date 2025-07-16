@@ -66,6 +66,8 @@ void CHLR::build() {
 
         assert(!queue.contains_id(node_id));
 
+        //std::cout << "Contracting, queue left " << queue.size() << " arc combinations " << graph.nodes[node_id].in_arcs.size() * graph.nodes[node_id].out_arcs.size() << std::endl;
+
 
         // Contract the node
         node.sort_arcs_for_weight();
@@ -94,8 +96,8 @@ void CHLR::build() {
                     });
 
                 if (shortcut_weight < witness_weight) {
-                    graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                    contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                    graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel, true);
+                    contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel, true);
                 }
             }
         }
@@ -203,7 +205,7 @@ void CHLRGraph::remove_incident_arcs(unsigned node_id) {
 }
 
 
-void CHLRGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
+void CHLRGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label, bool shortcut_reduce) {
     nodes[from].out_arcs.push_back({
         .other_node = to,
         .mid_node = mid_node,
@@ -239,10 +241,15 @@ void CHLRQuery::extract_directional_graphs() {
     }
 
     for (unsigned i = 0; i < graph.nodes.size(); ++i) {
+        unsigned from_rank = graph.nodes[i].rank;
+
         // Add arcs to forward/backward graph
         for (auto arc : graph.nodes[i].out_arcs) {
-            unsigned from_rank = graph.nodes[i].rank;
             unsigned to_rank = graph.nodes[arc.other_node].rank;
+
+            if(from_rank == to_rank) {
+                continue; // skip self-loops
+            }
 
             if (from_rank < to_rank) {
                 forward.nodes[i].out_arcs.push_back(arc);
@@ -256,6 +263,12 @@ void CHLRQuery::extract_directional_graphs() {
                 });
             }
         }
+    }
+
+    for (unsigned i = 0; i < forward.nodes.size(); ++i) {
+        forward.nodes[i].sort_arcs_for_weight();
+        backward.nodes[i].sort_arcs_for_weight();
+        graph.nodes[i].sort_arcs_for_weight();
     }
 }
 
@@ -289,7 +302,6 @@ void CHLRQuery::run() {
     was_forward_pushed.set(start_node);
     was_backward_pushed.set(end_node);
 
-
     unsigned best_distance = std::numeric_limits<unsigned>::max();
     bool search_forward = true;
 
@@ -301,7 +313,7 @@ void CHLRQuery::run() {
             }
             settle(
                 forward_queue, forward_distance, forward_predecessor_node,
-                forward_predecessor_arc, was_forward_pushed, /*finished*/search_forward,
+                forward_predecessor_arc, was_forward_pushed,
                 backward_queue, backward_distance, backward_predecessor_node,
                 backward_predecessor_arc, was_backward_pushed, meeting_node,
                 search_forward, forward, restriction
@@ -313,7 +325,7 @@ void CHLRQuery::run() {
             }
             settle(
                 backward_queue, backward_distance, backward_predecessor_node,
-                backward_predecessor_arc, was_backward_pushed, /*finished*/search_forward,
+                backward_predecessor_arc, was_backward_pushed,
                 forward_queue, forward_distance, forward_predecessor_node,
                 forward_predecessor_arc, was_forward_pushed, meeting_node,
                 search_forward, backward, restriction
@@ -351,7 +363,7 @@ void CHLRQuery::settle(
     MinIDQueue &queue, std::vector<unsigned> &distance,
     std::vector<unsigned> &predecessor_node,
     std::vector<unsigned> &predecessor_arc,
-    TimestampFlags &was_pushed, bool &finished,
+    TimestampFlags &was_pushed,
     MinIDQueue &other_queue, std::vector<unsigned> &other_distance,
     std::vector<unsigned> &other_predecessor_node,
     std::vector<unsigned> &other_predecessor_arc,
@@ -369,8 +381,8 @@ void CHLRQuery::settle(
 
     was_pushed.set(current_node);
 
-    unsigned j = 0;
-    for (const auto &arc : graph.nodes[current_node].out_arcs) {
+    for (unsigned j = 0; j < graph.nodes[current_node].out_arcs.size(); ++j) {
+        const auto &arc = graph.nodes[current_node].out_arcs[j];
         if (!arc.label.is_allowed(restriction)) continue;
 
         unsigned next_node = arc.other_node;
@@ -392,11 +404,49 @@ void CHLRQuery::settle(
             meeting_node = next_node;
             return;
         }
-
-        j++;
     }
 }
 
+CHLRArc reversed(unsigned start, CHLRArc arc) {
+    return {
+        .other_node = start,
+        .mid_node = arc.mid_node,
+        .weight = arc.weight,
+        .label = arc.label
+    };
+}
+
+CHLRArc search_arc(CHLRGraph &graph, unsigned from, unsigned to, Label restriction, bool backward) {
+    unsigned i = 0, j = 0;
+
+    while(i < graph.nodes[from].out_arcs.size() && j < graph.nodes[to].in_arcs.size()) {
+        const auto &out_arc = graph.nodes[from].out_arcs[i];
+        const auto &in_arc = graph.nodes[to].in_arcs[j];
+
+        if (out_arc.other_node == to && out_arc.label.is_subset_of(restriction)) {
+            return out_arc;
+        } else if (in_arc.other_node == from && in_arc.label.is_subset_of(restriction)) {
+            return reversed(to, in_arc);
+        }
+
+        if (out_arc.weight < in_arc.weight) {
+            i++;
+        } else {
+            j++;
+        }
+    }
+
+    throw std::runtime_error("Arc not found from " + std::to_string(from) + " to " + std::to_string(to));
+}
+
+void expand_arc(CHLRGraph &graph, std::vector<CHLRArc> &path, unsigned start, CHLRArc arc, bool backward) {
+    if(arc.mid_node == invalid_id) {
+        path.push_back(arc);
+    } else {
+        expand_arc(graph, path, start, search_arc(graph, start, arc.mid_node, arc.label, backward), backward);
+        expand_arc(graph, path, arc.mid_node, search_arc(graph, arc.mid_node, arc.other_node, arc.label, backward), backward);
+    }
+}
 
 std::vector<CHLRArc> CHLRQuery::get_arc_path() {
     std::vector<CHLRArc> path;
@@ -408,28 +458,14 @@ std::vector<CHLRArc> CHLRQuery::get_arc_path() {
         unsigned arc_index = _forward_predecessor_arc[current_node];
 
         if (predecessor == invalid_id || arc_index == invalid_id) break;
-        
-        CHLRArc arc = forward.nodes[predecessor].out_arcs[arc_index];
-        if(arc.is_shortcut()) {
-            path.push_back({
-                .other_node = arc.mid_node,
-                .mid_node = invalid_id,
-                .weight = arc.weight,
-                .label = arc.label
-            });
-            path.push_back({
-                .other_node = arc.other_node,
-                .mid_node = invalid_id,
-                .weight = arc.weight,
-                .label = arc.label
-            });
-        } else {
-            path.push_back(arc);
-        }
 
+        CHLRArc arc = forward.nodes[predecessor].out_arcs[arc_index];
+        path.push_back(arc);
+        
         current_node = predecessor;
     }
 
+    unsigned swap_direction = path.size();
     std::reverse(path.begin(), path.end());
 
     current_node = meeting_node;
@@ -440,31 +476,20 @@ std::vector<CHLRArc> CHLRQuery::get_arc_path() {
         if (predecessor == invalid_id || arc_index == invalid_id) break;
 
         CHLRArc arc = backward.nodes[predecessor].out_arcs[arc_index];
-        
-        if(arc.is_shortcut()) {
-            path.push_back({
-                .other_node = arc.mid_node,
-                .mid_node = invalid_id,
-                .weight = arc.weight,
-                .label = arc.label
-            });
-            path.push_back({
-                .other_node = predecessor,
-                .mid_node = invalid_id,
-                .weight = arc.weight,
-                .label = arc.label
-            });
-        } else {
-            path.push_back({
-                .other_node = predecessor,
-                .mid_node = invalid_id,
-                .weight = arc.weight,
-                .label = arc.label
-            });
-        }
+        assert(arc.other_node == current_node);
+        path.push_back(reversed(predecessor, arc));
 
         current_node = predecessor;
     }
 
-    return path;
+    std::vector<CHLRArc> expanded_path;
+    unsigned from = start_node;
+    unsigned i = 0;
+    for (auto &arc : path) {
+        bool fw = i++ < swap_direction;
+        expand_arc(graph, expanded_path, from, arc, !fw);
+        from = arc.other_node;
+    }
+
+    return expanded_path;
 }
