@@ -285,6 +285,8 @@ void CHLRQuery::run() {
     std::vector<unsigned> backward_predecessor_arc;
 
     meeting_node = invalid_id;
+    std::vector<unsigned> meeting_nodes;
+    unsigned best_meeting_node = invalid_id;
 
     forward_distance.resize(graph.nodes.size(), std::numeric_limits<unsigned>::max());
     backward_distance.resize(graph.nodes.size(), std::numeric_limits<unsigned>::max());
@@ -335,8 +337,10 @@ void CHLRQuery::run() {
         // Update best_distance if a meeting_node was found
         if(meeting_node != invalid_id) {
             unsigned candidate = forward_distance[meeting_node] + backward_distance[meeting_node];
-            if(candidate < best_distance)
+            if(candidate < best_distance){
+                best_meeting_node = meeting_node;
                 best_distance = candidate;
+            }
         }
 
         // Get current min keys (if queues not empty)
@@ -351,6 +355,8 @@ void CHLRQuery::run() {
         // Alternate search direction
         search_forward = !search_forward;
     }
+
+    meeting_node = best_meeting_node;
 
     _forward_predecessor_arc = std::move(forward_predecessor_arc);
     _backward_predecessor_arc = std::move(backward_predecessor_arc);
@@ -374,12 +380,11 @@ void CHLRQuery::settle(
     unsigned current_node = p.id;
     unsigned current_distance = p.key;
 
+    was_pushed.set(current_node);
+
     if (other_was_pushed.is_set(current_node)) {
         meeting_node = current_node;
-        return;
     }
-
-    was_pushed.set(current_node);
 
     for (unsigned j = 0; j < graph.nodes[current_node].out_arcs.size(); ++j) {
         const auto &arc = graph.nodes[current_node].out_arcs[j];
@@ -398,11 +403,6 @@ void CHLRQuery::settle(
             } else {
                 queue.decrease_key({next_node, new_distance});
             }
-        }
-
-        if (other_was_pushed.is_set(next_node)) {
-            meeting_node = next_node;
-            return;
         }
     }
 }
