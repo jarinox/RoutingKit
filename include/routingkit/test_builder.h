@@ -139,7 +139,7 @@ public:
     }
 
     void build_ch() {
-        ch.build(graph.node_count(), tail, graph.head, graph.geo_distance, graph.label);
+        ch = ContractionHierarchy::build(graph.node_count(), tail, graph.head, graph.geo_distance, graph.label);
     }
 
     RoutingResult run_chlr(RoutingRequest request){
