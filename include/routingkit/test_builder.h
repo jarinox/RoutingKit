@@ -26,19 +26,33 @@ void _add_for_all_profiles(std::vector<RoutingRequest>& requests, float from_lat
     req.from_node = geo_position_to_node.find_nearest_neighbor_within_radius(req.from_latitude, req.from_longitude, 1000).id;
     req.to_node = geo_position_to_node.find_nearest_neighbor_within_radius(req.to_latitude, req.to_longitude, 1000).id;
 
+    RoutingRequest req_rev = req;
+    std::swap(req_rev.from_node, req_rev.to_node);
+    std::swap(req_rev.from_latitude, req_rev.to_latitude);
+    std::swap(req_rev.from_longitude, req_rev.to_longitude);
+
     req.profile.set_bit(true, PEDESTRIAN);
     req.profile.set_bit(false, BICYCLE);
     req.profile.set_bit(false, CAR);
     requests.push_back(req);
+
+    req_rev.profile = req.profile;
+    requests.push_back(req_rev);
 
     req.profile.set_bit(false, PEDESTRIAN);
     req.profile.set_bit(true, BICYCLE);
     req.profile.set_bit(false, CAR);
     requests.push_back(req);
 
+    req_rev.profile = req.profile;
+    requests.push_back(req_rev);
+
     req.profile.set_bit(false, BICYCLE);
     req.profile.set_bit(true, CAR);
     requests.push_back(req);
+
+    req_rev.profile = req.profile;
+    requests.push_back(req_rev);
 }
 
 class ResultArc {
@@ -62,7 +76,7 @@ public:
 
 class TestSetup {
 public:
-    SimpleOSMMultiProfileRoutingGraph graph;
+    SimpleOSMCarRoutingGraph graph;
     std::vector<unsigned> tail;
     ContractionHierarchy ch;
     CHLRGraph chg;
@@ -79,7 +93,7 @@ public:
             path = "../" + path;
         }
 
-        graph = simple_load_osm_multi_profile_routing_graph_from_pbf(path);
+        graph = simple_load_osm_car_routing_graph_from_pbf(path);
         tail = invert_inverse_vector(graph.first_out);
 
         geo_position_to_node = GeoPositionToNode(graph.latitude, graph.longitude);
@@ -96,7 +110,7 @@ public:
             _add_for_all_profiles(requests, 47.575654, 7.984099, 47.575508, 7.991384, geo_position_to_node);
         }
 
-        if(osm_file == "ma_alter_messplatz.osm.pbf") {
+        if(osm_file == "ma_alter_messplatz.osm.pbf" || osm_file == "ma_min_messplatz.osm.pbf") {
             _add_for_all_profiles(requests, 49.499352, 8.472701, 49.491333, 8.467192, geo_position_to_node);
             _add_for_all_profiles(requests, 49.497794, 8.475011, 49.497204, 8.470293, geo_position_to_node);
         }
@@ -107,9 +121,8 @@ public:
         }
 
         if(osm_file == "hd_neuenheim.osm.pbf") {
-            //_add_for_all_profiles(requests, 49.422691, 8.686860, 49.423005, 8.680583, geo_position_to_node);
-            _add_for_all_profiles(requests, 49.423005, 8.680583, 49.422691, 8.686860, geo_position_to_node);
-            //_add_for_all_profiles(requests, 49.422852, 8.681796, 49.421650, 8.685851, geo_position_to_node);
+            _add_for_all_profiles(requests, 49.422691, 8.686860, 49.423005, 8.680583, geo_position_to_node);
+            _add_for_all_profiles(requests, 49.422852, 8.681796, 49.421650, 8.685851, geo_position_to_node);
         }
     }
 
