@@ -68,7 +68,9 @@ class CHLRGraph {
     std::vector<CHLRNode> nodes;
 
     void remove_incident_arcs(unsigned node_id);
-    void add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label, bool shortcut_reduce = false);
+    void add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
+    bool add_or_reduce_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
+    CHLRArc& get_reverse_arc(CHLRArc &arc, unsigned start_node);
 };
 
 class CHLR {
@@ -120,12 +122,14 @@ public:
                 std::vector<unsigned>& other_predecessor_node,
                 std::vector<unsigned>& other_predecessor_arc,
                 TimestampFlags& other_was_pushed, unsigned& meeting_node,
-                bool& search_forward, CHLRGraph& graph, Label restriction);
+                bool& search_forward, CHLRGraph& graph, Label restriction, unsigned &best_distance);
     void run();
 
     std::vector<CHLRNode> get_node_path();
     std::vector<CHLRArc> get_arc_path();
     void reset();
+
+    std::vector<CHLRArc> full_forward_search();
 };
 
 class DijkstraLR {
