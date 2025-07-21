@@ -76,13 +76,13 @@ void CHLR::build() {
             if (!queue.contains_id(in_arc.other_node)) // TODO: slow, may be optimized
                 continue;  // Ensure rank(other_node) > rank(node_id)
 
-            DijkstraLR dijkstra(graph, in_arc.other_node);
-
             for (const auto &out_arc : graph.nodes[node_id].out_arcs) {
                 if (in_arc.other_node == out_arc.other_node)
                     continue;  // Skip self-loops
                 if (!queue.contains_id(out_arc.other_node)) // TODO: slow, may be optimized
                     continue;  // Ensure rank(other_node) > rank(node_id)
+                
+                DijkstraLR dijkstra(graph, in_arc.other_node);
 
                 Label newLabel = in_arc.label.unite(out_arc.label);
                 Label R = newLabel;
@@ -92,13 +92,16 @@ void CHLR::build() {
 
                 unsigned witness_weight = dijkstra.witness_search(
                     out_arc.other_node, R, [&](unsigned bypass_node) {
-                        return node_id != bypass_node;
+                        return (node_id != bypass_node) && (graph.nodes[bypass_node].rank > graph.nodes[node_id].rank);
                     });
 
                 if (shortcut_weight < witness_weight) {
                     auto need_add = graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
                     if(need_add)
                         contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+
+                    //graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                    //contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
                 }
             }
         }
@@ -233,7 +236,7 @@ CHLRArc& CHLRGraph::get_reverse_arc(CHLRArc &arc, unsigned start_node) {
 
 bool CHLRGraph::add_or_reduce_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
     for (auto &arc : nodes[from].out_arcs) {
-        if (arc.other_node == to && arc.mid_node == mid_node) {
+        if (arc.other_node == to) {
             if (arc.weight > weight) {
                 if(label.is_subset_of(arc.label)) {
                     // New arc is shorter and has fewer restrictions, replace existing shortcut
