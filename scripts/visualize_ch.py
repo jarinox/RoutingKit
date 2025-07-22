@@ -119,7 +119,7 @@ for edge in edges:
         location=center,
         number_of_sides=3,
         radius=5,
-        rotation=(rot + 180 if edge["is_upward"] else rot),
+        rotation=(rot + 180 if not edge["is_upward"] else rot),
         color=color,
         fill=True,
         fill_color=color,
