@@ -12,10 +12,10 @@ using namespace std;
 
 
 int main() {
-    TestSetup setup = TestSetup("rippo.osm.pbf");
+    TestSetup setup = TestSetup("ma_alter_messplatz.osm.pbf");
     setup.chlr.build();
 
-    auto result = setup.run_chlr(setup.requests[0]);
-    setup.print_path(setup.requests[0], result);
+    auto result = setup.run_chlr(setup.requests[2]);
+    setup.print_path(setup.requests[2], result);
 }
 
