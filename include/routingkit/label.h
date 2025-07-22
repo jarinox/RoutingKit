@@ -15,6 +15,7 @@ public:
     void set_label(uint64_t new_label);
     bool operator==(const Label& other) const;
     bool operator!=(const Label& other) const;
+    bool operator<(const Label& other) const;
     bool is_allowed(Label& restriction) const;
     bool is_subset_of(const Label& other) const;
     bool is_superset_of(const Label& other) const;

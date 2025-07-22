@@ -30,7 +30,8 @@ void CHLR::build() {
     }
 
     while (!queue.empty()) {
-        auto [node_id, importance] = queue.pop();
+        auto p = queue.pop();
+        auto node_id = p.id;
         order[contracted_node_count++] = node_id;
         graph.nodes[node_id].rank = contracted_node_count;
         contraction_graph.nodes[node_id].rank = contracted_node_count;
@@ -66,7 +67,7 @@ void CHLR::build() {
 
         assert(!queue.contains_id(node_id));
 
-        //std::cout << "Contracting, queue left " << queue.size() << " arc combinations " << graph.nodes[node_id].in_arcs.size() * graph.nodes[node_id].out_arcs.size() << std::endl;
+        std::cout << "Contracting, queue left " << queue.size() << " arc combinations " << graph.nodes[node_id].in_arcs.size() * graph.nodes[node_id].out_arcs.size() << std::endl;
 
 
         // Contract the node
@@ -76,13 +77,14 @@ void CHLR::build() {
             if (!queue.contains_id(in_arc.other_node)) // TODO: slow, may be optimized
                 continue;  // Ensure rank(other_node) > rank(node_id)
 
+            DijkstraLR dijkstra(graph, in_arc.other_node);
+
             for (const auto &out_arc : graph.nodes[node_id].out_arcs) {
                 if (in_arc.other_node == out_arc.other_node)
                     continue;  // Skip self-loops
                 if (!queue.contains_id(out_arc.other_node)) // TODO: slow, may be optimized
                     continue;  // Ensure rank(other_node) > rank(node_id)
                 
-                DijkstraLR dijkstra(graph, in_arc.other_node);
 
                 Label newLabel = in_arc.label.unite(out_arc.label);
                 Label R = newLabel;
@@ -129,15 +131,25 @@ unsigned estimate_node_importance(const CHLRGraph &graph, unsigned node_id) {
 unsigned DijkstraLR::witness_search(
     unsigned end_node, Label restriction,
     const std::function<bool(unsigned)> &is_valid_node) {
-    if (visited_nodes.empty()) {
-        visited_nodes.clear();
-        queue.clear();
-        queue.push({start_node, 0});
-        tentative_distance[start_node] = 0;
-    } else {
-        if (visited_nodes.find(end_node) != visited_nodes.end()) {
-            return tentative_distance[end_node];
-        }
+
+    if(storage.find(restriction) == storage.end()){
+        storage[restriction] = {
+            MinIDQueue(graph.nodes.size()),
+            std::vector<unsigned>(graph.nodes.size(), inf_weight),
+            std::set<unsigned>()};
+        
+        storage[restriction].queue.push({start_node, 0});
+        storage[restriction].tentative_distance[start_node] = 0;
+    }
+
+    auto& queue = storage[restriction].queue;
+    auto& tentative_distance = storage[restriction].tentative_distance;
+    auto& visited_nodes = storage[restriction].visited_nodes;
+
+    previous_restriction = restriction;
+
+    if(tentative_distance[end_node] != inf_weight) {
+        return tentative_distance[end_node];
     }
 
     unsigned pop_count = 0;

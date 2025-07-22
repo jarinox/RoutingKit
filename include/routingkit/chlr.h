@@ -12,6 +12,7 @@
 #include <set>
 #include <vector>
 #include <unordered_set>
+#include <map>
 
 using namespace RoutingKit;
 
@@ -24,6 +25,9 @@ class CHLRArc {
     Label label;
 
     bool is_shortcut() const { return mid_node != invalid_id; }
+    bool dominates(const CHLRArc& other) const {
+        return label.is_subset_of(other.label) && weight <= other.weight;
+    }
 };
 
 class CHLRNode {
@@ -44,11 +48,11 @@ class CHLRNode {
     void sort_arcs_for_weight() {
         std::sort(in_arcs.begin(), in_arcs.end(),
                   [](const CHLRArc& a, const CHLRArc& b) {
-                      return a.weight < b.weight;
+                      return a.weight != b.weight ? a.weight < b.weight : !a.label.is_superset_of(b.label);
                   });
         std::sort(out_arcs.begin(), out_arcs.end(),
                   [](const CHLRArc& a, const CHLRArc& b) {
-                      return a.weight < b.weight;
+                      return a.weight != b.weight ? a.weight < b.weight : !a.label.is_superset_of(b.label);
                   });
     }
 };
@@ -132,21 +136,25 @@ public:
     std::vector<CHLRArc> full_forward_search();
 };
 
-class DijkstraLR {
-   public:
-    CHLRGraph& graph;
+class DijkstraLRStorage {
+public:
     MinIDQueue queue;
-    unsigned max_pop_count = 500;
-    unsigned start_node;
     std::vector<unsigned> tentative_distance;
     std::set<unsigned> visited_nodes;
+};
 
-    DijkstraLR(CHLRGraph& graph, unsigned start_node)
-        : graph(graph), start_node(start_node) {
-        queue = MinIDQueue(graph.nodes.size());
-        tentative_distance.resize(graph.nodes.size(),
-                                  std::numeric_limits<unsigned>::max());
-    }
+class DijkstraLR {
+public:
+    CHLRGraph& graph;
+    unsigned max_pop_count = 500;
+    unsigned start_node;
+private:
+    Label previous_restriction;
+    std::map<Label, DijkstraLRStorage> storage;
+public:
+
+    DijkstraLR(CHLRGraph& graph, unsigned start_node, DijkstraLRStorage storage = DijkstraLRStorage())
+        : graph(graph), start_node(start_node), previous_restriction(Label::fully_restricted()), storage(std::map<Label, DijkstraLRStorage>()) {};
 
     unsigned witness_search(unsigned end_node, Label restriction,
                             const std::function<bool(unsigned)>& is_valid_node);

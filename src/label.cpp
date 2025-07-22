@@ -26,6 +26,10 @@ bool Label::operator!=(const Label& other) const {
     return label != other.label;
 }
 
+bool Label::operator<(const Label& other) const {
+    return label < other.label;
+}
+
 /* 
 * Checks if the label is allowed under the given restriction.
 * The label is allowed if the disjunction of the labels and the restrictions is empty.
