@@ -25,6 +25,8 @@ void CHLR::build() {
     MinIDQueue queue(graph.nodes.size());
     unsigned contracted_node_count = 0;
 
+    TimestampFlags has_been_contracted(graph.nodes.size());
+
     for (unsigned i = 0; i < graph.nodes.size(); ++i) {
         queue.push({i, estimate_node_importance(graph, i)});
     }
@@ -35,6 +37,7 @@ void CHLR::build() {
         order[contracted_node_count++] = node_id;
         graph.nodes[node_id].rank = contracted_node_count;
         contraction_graph.nodes[node_id].rank = contracted_node_count;
+        has_been_contracted.set(node_id);
 
         CHLRNode &node = graph.nodes[node_id];
 
@@ -53,7 +56,7 @@ void CHLR::build() {
         }
         for (const auto &neighbor : neighbors) {
             if (neighbor == node_id) continue;  // Skip self-loops
-            if (!queue.contains_id(neighbor)) continue;
+            if (has_been_contracted.is_set(neighbor)) continue;
 
             unsigned new_importance = estimate_node_importance(graph, neighbor);
             unsigned current_importance = queue.get_key(neighbor);
@@ -65,7 +68,7 @@ void CHLR::build() {
             }
         }
 
-        assert(!queue.contains_id(node_id));
+        assert(has_been_contracted.is_set(node_id));
 
         std::cout << "Contracting, queue left " << queue.size() << " arc combinations " << graph.nodes[node_id].in_arcs.size() * graph.nodes[node_id].out_arcs.size() << std::endl;
 
@@ -74,7 +77,7 @@ void CHLR::build() {
         node.sort_arcs_for_weight();
         for (const auto &in_arc : graph.nodes[node_id].in_arcs) {
             if (in_arc.other_node == node_id) continue;  // Skip self-loops
-            if (!queue.contains_id(in_arc.other_node)) // TODO: slow, may be optimized
+            if (has_been_contracted.is_set(in_arc.other_node))
                 continue;  // Ensure rank(other_node) > rank(node_id)
 
             DijkstraLR dijkstra(graph, in_arc.other_node);
@@ -82,7 +85,7 @@ void CHLR::build() {
             for (const auto &out_arc : graph.nodes[node_id].out_arcs) {
                 if (in_arc.other_node == out_arc.other_node)
                     continue;  // Skip self-loops
-                if (!queue.contains_id(out_arc.other_node)) // TODO: slow, may be optimized
+                if (has_been_contracted.is_set(out_arc.other_node))
                     continue;  // Ensure rank(other_node) > rank(node_id)
                 
 
