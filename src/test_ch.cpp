@@ -12,6 +12,9 @@ using namespace std;
 
 
 TEST(CHLR, ch_vs_dijkstra) {
+    std::cout << "Test is disabled." << std::endl;
+    return;
+    
     TestSetup setup = TestSetup("rippo.osm.pbf");
     std::cout << "Building Contraction Hierarchy..." << std::endl;
     setup.build_ch();

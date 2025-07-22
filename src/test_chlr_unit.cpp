@@ -8,6 +8,7 @@
 #include <routingkit/label.h>
 #include <routingkit/io_helper.h>
 #include <routingkit/dijkstra.h>
+#include <routingkit/test_builder.h>
 #include <gtest/gtest.h>
 
 #include "verify.h"
@@ -20,52 +21,27 @@ using namespace RoutingKit;
 using namespace std;
 
 
-bool file_exists(const std::string& filename) {
-    std::ifstream file(filename);
-    return file.good();
+TEST(CHLR_unit, witness_search) {
+    TestSetup setup("rippo.osm.pbf");
+
+    for (const auto& request : setup.requests) {
+        DijkstraLR dijkstra(setup.chg, request.from_node);
+        unsigned witness_weight = dijkstra.witness_search(
+            request.to_node, request.profile,
+            [&](unsigned bypass_node) {
+                return true;
+            }
+        );
+
+        auto result_dij = setup.run_dijkstra(request);
+
+        ASSERT_EQ(witness_weight, result_dij.total_weight) << "Witness weight does not match Dijkstra result for request: "
+                  << "from (" << request.from_latitude << ", " << request.from_longitude << ") "
+                  << "to (" << request.to_latitude << ", " << request.to_longitude << ")";
+    }
 }
 
-TEST(CHLR_alt, witness_search) {
-    std::string pbf_file = "b.osm.pbf";
-    if(!file_exists("b.osm.pbf")) {
-        pbf_file = "../" + pbf_file;
-    }
-
-    auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf(pbf_file);
-	auto tail = invert_inverse_vector(graph.first_out);
-
-    auto geo_position_to_node = GeoPositionToNode(graph.latitude, graph.longitude);
-
-    RoutingRequest reqBuilder = {true, 47.629668, 7.908236, 47.631892, 7.912852, 0, 0, Label()};
-    reqBuilder.from_node = geo_position_to_node.find_nearest_neighbor_within_radius(reqBuilder.from_latitude, reqBuilder.from_longitude, 1000).id;
-    reqBuilder.to_node = geo_position_to_node.find_nearest_neighbor_within_radius(reqBuilder.to_latitude, reqBuilder.to_longitude, 1000).id;
-    reqBuilder.profile.set_bit(true, CAR);
-    auto restriction = reqBuilder.profile;
-
-    CHLRGraph chg = CHLRGraph(graph.node_count(), tail, graph.head, graph.geo_distance, graph.latitude, graph.longitude, graph.label);
-    DijkstraLR dijkstra(chg, reqBuilder.from_node);
-
-    unsigned distance = dijkstra.witness_search(reqBuilder.to_node, restriction, [&](unsigned node) {
-        return true; // All nodes are valid for this test
-    });
-
-    Dijkstra dij(graph.first_out, tail, graph.head);
-    dij.reset().add_source(reqBuilder.from_node).set_profile(reqBuilder.profile);
-    while(!dij.is_finished()){
-        auto settle_result = dij.settle([&](unsigned arc, unsigned distance){
-            return graph.geo_distance[arc];
-        });
-        if(settle_result.node == reqBuilder.to_node){
-            break;
-        }
-    }
-
-    unsigned reference_distance = dij.get_distance_to(reqBuilder.to_node);
-
-    EXPECT_EQ(distance, reference_distance) << "Witness search distance does not match Dijkstra's distance.";
-}
-
-TEST(CHLR_alt, add_arc) {
+TEST(CHLR_unit, add_arc) {
     CHLRGraph graph;
     graph.nodes.resize(3);
 
@@ -82,7 +58,8 @@ TEST(CHLR_alt, add_arc) {
 }
 
 
-TEST(CHLR_alt, remove_incident_arc) {
+
+TEST(CHLR_unit, remove_incident_arc) {
     CHLRGraph graph;
     graph.nodes.resize(3);
 
@@ -99,7 +76,7 @@ TEST(CHLR_alt, remove_incident_arc) {
     ASSERT_EQ(graph.nodes[2].out_arcs.size(), 1); // outgoing to 0
 }
 
-TEST(CHLR_alt, building_order_and_shortcuts){
+TEST(CHLR_unit, building_order_and_shortcuts){
     CHLRGraph graph;
     graph.nodes.resize(5);
 
@@ -152,7 +129,7 @@ TEST(CHLR_alt, building_order_and_shortcuts){
 }
 
 
-TEST(CHLR_alt, extract_forward_and_backward_graphs) {
+TEST(CHLR_unit, extract_forward_and_backward_graphs) {
     CHLRGraph graph;
     graph.nodes.resize(5);
 
@@ -186,6 +163,7 @@ TEST(CHLR_alt, extract_forward_and_backward_graphs) {
         }
 
         for(auto& arc : query.backward.nodes[i].out_arcs) {
+            // less than because backward arcs are reversed
             ASSERT_LT(query.backward.nodes[i].rank, query.backward.nodes[arc.other_node].rank);
         }
     }

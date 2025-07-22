@@ -133,6 +133,11 @@ public:
             _add_for_all_profiles(requests, 49.423458, 8.686463, 49.414355, 8.677912, geo_position_to_node);
             _add_for_all_profiles(requests, 49.414511, 8.690186, 49.423600, 8.682632, geo_position_to_node);
         }
+
+        if(osm_file == "andorra.osm.pbf") {
+            _add_for_all_profiles(requests, 42.558387, 1.687437, 42.632901, 1.490997, geo_position_to_node);
+            _add_for_all_profiles(requests, 42.572491, 1.471320, 42.551935, 1.454219, geo_position_to_node);
+        }
     }
 
     RoutingResult run_dijkstra(RoutingRequest request){
