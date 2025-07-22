@@ -304,6 +304,26 @@ void CHLRQuery::extract_directional_graphs() {
                 continue; // skip self-loops
             }
 
+            bool skip_arc = false;
+            for(auto other_arc : graph.nodes[i].out_arcs) {
+                if(other_arc.mid_node == arc.mid_node && other_arc.other_node == arc.other_node && other_arc.label == arc.label) {
+                    continue;
+                }
+
+                if(other_arc.other_node != arc.other_node) {
+                    continue;
+                }
+
+                if(other_arc.dominates(arc)) {
+                    skip_arc = true;
+                    break;
+                }
+            }
+
+            if(skip_arc) {
+                continue; // skip dominated arcs
+            }
+
             if (from_rank < to_rank) {
                 forward.nodes[i].out_arcs.push_back(arc);
             } else {
