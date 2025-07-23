@@ -3,7 +3,7 @@ build/
 lib/
 
 # OSM PBF files
-*.pbf
+*.original.pbf
 
 # IDE
 .idea/

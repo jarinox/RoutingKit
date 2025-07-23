@@ -19,7 +19,7 @@ using namespace RoutingKit;
 using namespace std;
 
 int main(int argc, char*argv[]){
-    auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf("rippo.osm.pbf");
+    auto graph = simple_load_osm_multi_profile_routing_graph_from_pbf("graphs/ma_alter_messplatz.osm.pbf");
 	auto tail = invert_inverse_vector(graph.first_out);
 
     auto chg = CHLRGraph(graph.node_count(), tail, graph.head, graph.geo_distance, graph.latitude, graph.longitude, graph.label);
@@ -28,7 +28,7 @@ int main(int argc, char*argv[]){
 
     auto chc = CHLRQuery(ch.graph);
 
-    unsigned arcs_count[2] = {0, 0};
+    unsigned arcs_count[2] = {0, 0};            
 
     cout << "BEGIN NODES" << endl;
     for(unsigned i = 0; i < ch.graph.nodes.size(); ++i) {
