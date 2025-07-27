@@ -30,9 +30,13 @@ void CHLRMGraph::build_neighbour_index() {
             for (unsigned k = 0; k < node.arcs.size(); ++k) {
                 auto& e1 = node.arcs[k];
                 if (!arc.is_shortcut() || e1.to == arc.to) continue;
+                if (nodes[e1.to].rank > node.rank) continue;
+                if (nodes[e1.to].rank > nodes[arc.to].rank) continue;
+
                 for (unsigned l = 0; l < nodes[arc.to].arcs.size(); ++l) {
                     auto& e2 = nodes[arc.to].arcs[l];
                     if (!e2.is_shortcut() || e2.to != arc.to) continue;
+                    if (e1.label.unite(e2.label) != arc.label) continue;
 
                     CHLRMArcPos e1_pos{i, j};
                     CHLRMArcPos e2_pos{i, k};
