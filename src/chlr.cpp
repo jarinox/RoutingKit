@@ -75,14 +75,14 @@ void CHLR::build() {
 
         // Contract the node
         node.sort_arcs_for_weight();
-        for (const auto &in_arc : graph.nodes[node_id].in_arcs) {
+        for (auto &in_arc : graph.nodes[node_id].in_arcs) {
             if (in_arc.other_node == node_id) continue;  // Skip self-loops
             if (has_been_contracted.is_set(in_arc.other_node))
                 continue;  // Ensure rank(other_node) > rank(node_id)
 
             DijkstraLR dijkstra(graph, in_arc.other_node);
 
-            for (const auto &out_arc : graph.nodes[node_id].out_arcs) {
+            for (auto &out_arc : graph.nodes[node_id].out_arcs) {
                 if (in_arc.other_node == out_arc.other_node)
                     continue;  // Skip self-loops
                 if (has_been_contracted.is_set(out_arc.other_node))
@@ -105,8 +105,6 @@ void CHLR::build() {
                     if(need_add)
                         contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
 
-                    //graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                    //contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
                 }
             }
         }
@@ -535,7 +533,7 @@ CHLRArc search_arc(CHLRGraph &graph, unsigned from, unsigned to, Label restricti
 }
 
 void expand_arc(CHLRGraph &graph, std::vector<CHLRArc> &path, unsigned start, CHLRArc arc, bool backward) {
-    if(arc.mid_node == invalid_id) {
+    if(!arc.is_shortcut()) {
         path.push_back(arc);
     } else {
         expand_arc(graph, path, start, search_arc(graph, start, arc.mid_node, arc.label, backward), backward);

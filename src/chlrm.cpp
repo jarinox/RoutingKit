@@ -1,37 +1,16 @@
 #include <routingkit/chlrm.h>
-#include <functional>
 
-// Provide a hash specialization for CHLRMArcPos
-namespace std {
-    template <>
-    struct hash<CHLRMArcPos> {
-        std::size_t operator()(const CHLRMArcPos& pos) const noexcept {
-            return std::hash<unsigned>()(pos.node_index) ^ (std::hash<unsigned>()(pos.arc_index) << 1);
-        }
-    };
-
-    template <>
-    struct hash<std::pair<CHLRMArcPos, CHLRMArcPos>> {
-        std::size_t operator()(const std::pair<CHLRMArcPos, CHLRMArcPos>& p) const noexcept {
-            std::size_t h1 = std::hash<CHLRMArcPos>{}(p.first);
-            std::size_t h2 = std::hash<CHLRMArcPos>{}(p.second);
-            return h1 ^ (h2 << 1);
-        }
-    };
-}
-
-CHLRMGraph::CHLRMGraph(CHLR& chlr) {
+CHLRMGraph::CHLRMGraph(CHLRGraph& graph) {
     N_plus = std::unordered_map<std::pair<CHLRMArcPos, CHLRMArcPos>, CHLRMArcPos>();
     N_minus = std::unordered_map<CHLRMArcPos, std::vector<std::pair<CHLRMArcPos, CHLRMArcPos>>>();
     N_equals = std::unordered_map<CHLRMArcPos, std::vector<CHLRMArcPos>>();
 
-    auto& g = chlr.graph;
-    nodes.resize(g.nodes.size());
+    nodes.resize(graph.nodes.size());
 
-    for (unsigned i = 0; i < g.nodes.size(); ++i) {
+    for (unsigned i = 0; i < graph.nodes.size(); ++i) {
         nodes[i].index = i;
         nodes[i].rank = 0;
-        for (const auto& arc : g.nodes[i].out_arcs) {
+        for (const auto& arc : graph.nodes[i].out_arcs) {
             auto new_arc = CHLRMArc{i, arc.mid_node, arc.other_node, arc.weight, arc.label};
             nodes[i].arcs.emplace_back(new_arc);
         }
@@ -96,4 +75,8 @@ unsigned CHLRMGraph::calculate_weight(CHLRMArcPos arc_pos) {
     }
 
     return k;
+}
+
+CHLRMArc& CHLRMGraph::get_arc(CHLRMArcPos arc_pos) {
+    return nodes[arc_pos.node_index].arcs[arc_pos.arc_index];
 }
