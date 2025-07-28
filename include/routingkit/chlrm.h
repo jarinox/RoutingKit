@@ -56,6 +56,9 @@ public:
         from(from), mid_node(mid_node), to(to), cnt(0), weight(weight), label(label) {};
 
     bool is_shortcut() { return mid_node != invalid_id; }
+    unsigned rank(CHLRMGraph& graph) {
+        return std::min(graph.nodes[from].rank, graph.nodes[to].rank);
+    }
 };
 
 class CHLRMNode {
@@ -85,6 +88,8 @@ public:
     void delete_arc(CHLRMArcPos arc_pos);
 
     unsigned calculate_weight(CHLRMArcPos arc_pos);
+    void keep_shortcut_dominance(CHLRMArcPos arc_pos, MinIDQueue& queue, std::vector<std::pair<CHLRMArcPos, bool>>& unsigned_to_arc_pos, bool increment);
+    void maintenance(CHLRMArcPos arc_pos, unsigned new_weight, Label new_label);
 
 private:
     void build_neighbour_index();

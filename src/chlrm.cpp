@@ -84,3 +84,78 @@ unsigned CHLRMGraph::calculate_weight(CHLRMArcPos arc_pos) {
 CHLRMArc& CHLRMGraph::get_arc(CHLRMArcPos arc_pos) {
     return nodes[arc_pos.node_index].arcs[arc_pos.arc_index];
 }
+
+
+void CHLRMGraph::keep_shortcut_dominance(CHLRMArcPos arc_pos, MinIDQueue& queue, std::vector<std::pair<CHLRMArcPos, bool>>& unsigned_to_arc_pos, bool increment) {
+    auto& arc = get_arc(arc_pos);
+}
+
+void CHLRMGraph::maintenance(CHLRMArcPos arc_pos, unsigned new_weight, Label new_label) {
+    auto& arc = get_arc(arc_pos);
+    
+    MinIDQueue queue(nodes.size());
+    std::vector<std::pair<CHLRMArcPos, bool>> unsigned_to_arc_pos;
+    unsigned_to_arc_pos.reserve(nodes.size());
+
+    unsigned original_weight = arc.weight;
+
+    if(arc.label != new_label) {
+        // TODO: There is a mistake regarding the inital weight in the paper because w(new_arc) is undefined, it is not trivial how to set it.
+        auto new_arc = CHLRMArc{arc.from, arc.mid_node, arc.to, original_weight, new_label};
+        nodes[arc.from].arcs.push_back(new_arc);
+        auto new_arc_pos = CHLRMArcPos{static_cast<unsigned>(nodes[arc.from].arcs.size() - 1), arc.from};
+
+        arc.weight = inf_weight;
+        arc.weight = calculate_weight(arc_pos);
+
+        if (arc.weight > original_weight) {
+            queue.push({arc.rank(*this), static_cast<unsigned>(unsigned_to_arc_pos.size())});
+            unsigned_to_arc_pos.push_back({arc_pos, true});
+            keep_shortcut_dominance(arc_pos, queue, unsigned_to_arc_pos, true);
+        }
+
+        if (new_arc.weight > new_weight) {
+            new_arc.weight = new_weight;
+            new_arc.label = new_label;
+            queue.push({new_arc.rank(*this), static_cast<unsigned>(unsigned_to_arc_pos.size())});
+            unsigned_to_arc_pos.push_back({new_arc_pos, false});
+            keep_shortcut_dominance(new_arc_pos, queue, unsigned_to_arc_pos, false);
+        }
+    } else {
+        arc.weight = new_weight;
+        arc.weight = calculate_weight(arc_pos);
+        queue.push({arc.rank(*this), static_cast<unsigned>(unsigned_to_arc_pos.size())});
+        unsigned_to_arc_pos.push_back({arc_pos, arc.weight > original_weight});
+    }
+
+    while(!queue.empty()) {
+        auto [key, id] = queue.pop();
+        auto& arc_pos = unsigned_to_arc_pos[id].first;
+        bool increment = unsigned_to_arc_pos[id].second;
+
+        for(auto& partner : N_equals[arc_pos]) {
+            auto child_pos = N_plus[{arc_pos, partner}];
+            auto& child_arc = get_arc(child_pos);
+            if (child_arc.weight == inf_weight) continue;
+
+            if (increment) {
+                unsigned k = calculate_weight(child_pos);
+                // TODO: and not contained in queue. Is this implicitly true?
+                if (child_arc.weight < k) {
+                    child_arc.weight = k;
+                    queue.push({child_arc.rank(*this), static_cast<unsigned>(unsigned_to_arc_pos.size())});
+                    unsigned_to_arc_pos.push_back({child_pos, true});
+                    keep_shortcut_dominance(child_pos, queue, unsigned_to_arc_pos, true);
+                }
+            } else {
+                if (child_arc.weight > get_arc(partner).weight + get_arc(arc_pos).weight) {
+                    child_arc.weight = get_arc(partner).weight + get_arc(arc_pos).weight;
+                    queue.push({child_arc.rank(*this), static_cast<unsigned>(unsigned_to_arc_pos.size())});
+                    unsigned_to_arc_pos.push_back({child_pos, false});
+                    keep_shortcut_dominance(child_pos, queue, unsigned_to_arc_pos, false);
+                }
+                
+            }
+        }
+    }
+}
