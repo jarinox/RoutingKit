@@ -41,6 +41,9 @@ namespace std {
     };
 }
 
+// Forward declaration to fix unknown type error
+class CHLRMGraph;
+
 class CHLRMArc {
 public:
     unsigned from;
@@ -56,8 +59,10 @@ public:
         from(from), mid_node(mid_node), to(to), cnt(0), weight(weight), label(label) {};
 
     bool is_shortcut() { return mid_node != invalid_id; }
-    unsigned rank(CHLRMGraph& graph) {
-        return std::min(graph.nodes[from].rank, graph.nodes[to].rank);
+    unsigned rank(CHLRMGraph& graph);
+
+    CHLRArc to_chlr() {
+        return CHLRArc{to, mid_node, weight, label};
     }
 };
 
@@ -66,7 +71,24 @@ public:
     unsigned index;
     unsigned rank;
 
+    float lat;
+    float lon;
+
     std::vector<CHLRMArc> arcs;
+
+    CHLRNode to_chlr() {
+        CHLRNode node;
+        node.rank = rank;
+        node.lat = lat;
+        node.lon = lon;
+        node.out_arcs.reserve(arcs.size());
+        
+        for (auto& arc : arcs) {
+            node.out_arcs.push_back(arc.to_chlr());
+        }
+        
+        return node;
+    }
 };
 
 class CHLRMGraph {
@@ -83,6 +105,8 @@ public:
     std::unordered_map<CHLRMArcPos, std::vector<CHLRMArcPos>> N_equals;
 
     CHLRMGraph(CHLRGraph& graph);
+
+    CHLRGraph to_chlr();
 
     CHLRMArc& get_arc(CHLRMArcPos arc_pos);
     void delete_arc(CHLRMArcPos arc_pos);

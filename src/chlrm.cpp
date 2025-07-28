@@ -10,6 +10,9 @@ CHLRMGraph::CHLRMGraph(CHLRGraph& graph) {
     for (unsigned i = 0; i < graph.nodes.size(); ++i) {
         nodes[i].index = i;
         nodes[i].rank = 0;
+        nodes[i].lat = graph.nodes[i].lat;
+        nodes[i].lon = graph.nodes[i].lon;
+
         for (const auto& arc : graph.nodes[i].out_arcs) {
             auto new_arc = CHLRMArc{i, arc.mid_node, arc.other_node, arc.weight, arc.label};
             nodes[i].arcs.emplace_back(new_arc);
@@ -92,6 +95,7 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArcPos arc_pos, MinIDQueue& queue,
 
 void CHLRMGraph::maintenance(CHLRMArcPos arc_pos, unsigned new_weight, Label new_label) {
     auto& arc = get_arc(arc_pos);
+    assert(!arc.is_shortcut()); // This condition is not explicitly stated in the paper, but only modifying shortcuts might corrupt the graph structure.
     
     MinIDQueue queue(nodes.size());
     std::vector<std::pair<CHLRMArcPos, bool>> unsigned_to_arc_pos;
@@ -153,9 +157,24 @@ void CHLRMGraph::maintenance(CHLRMArcPos arc_pos, unsigned new_weight, Label new
                     queue.push({child_arc.rank(*this), static_cast<unsigned>(unsigned_to_arc_pos.size())});
                     unsigned_to_arc_pos.push_back({child_pos, false});
                     keep_shortcut_dominance(child_pos, queue, unsigned_to_arc_pos, false);
-                }
+                }   
                 
             }
         }
     }
+}
+
+CHLRGraph CHLRMGraph::to_chlr() {
+    CHLRGraph chlr_graph;
+    chlr_graph.nodes.resize(nodes.size());
+
+    for (unsigned i = 0; i < nodes.size(); ++i) {
+        chlr_graph.nodes[i] = nodes[i].to_chlr();
+    }
+
+    return chlr_graph;
+}
+
+unsigned CHLRMArc::rank(CHLRMGraph& graph) {
+    return std::min(graph.nodes[from].rank, graph.nodes[to].rank);
 }
