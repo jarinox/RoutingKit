@@ -12,8 +12,7 @@ using namespace RoutingKit;
 using namespace std;
 
 
-TEST(CHLRM, test_build_neighbour_index) {
-    return; // Disable for now
+TEST(CHLRM, test_convert_and_build_neighbour_index) {
     std::vector<std::string> osm_files = {
         "ma_min_messplatz.osm.pbf",
         "rippo.osm.pbf",
@@ -78,7 +77,60 @@ TEST(CHLRM, test_build_neighbour_index) {
                     << q.rank << " > " << v.rank;
             }
         }
+
+        auto back_to_chlr = chlrm_graph.to_chlr();
+
+        for(unsigned i = 0; i < back_to_chlr.nodes.size(); ++i) {
+            auto& node = back_to_chlr.nodes[i];
+
+            ASSERT_EQ(node.rank, combined_graph.nodes[i].rank) << "Node rank does not match: " 
+                << i << " -> " << node.rank << " vs " << combined_graph.nodes[i].rank;
+            
+            ASSERT_EQ(node.lat, combined_graph.nodes[i].lat) << "Node latitude does not match: "
+                << i << " -> " << node.lat << " vs " << combined_graph.nodes[i].lat;
+            
+            ASSERT_EQ(node.lon, combined_graph.nodes[i].lon) << "Node longitude does not match: "
+                << i << " -> " << node.lon << " vs " << combined_graph.nodes[i].lon;
+            
+            ASSERT_EQ(node.out_arcs.size(), combined_graph.nodes[i].out_arcs.size()) << "Node out arcs size does not match: "
+                << i << " -> " << node.out_arcs.size() << " vs " << combined_graph.nodes[i].out_arcs.size();
+            
+            ASSERT_EQ(node.out_arcs.size(), chlrm_graph.nodes[i].arcs.size()) << "Node out arcs size does not match in CHLRM graph: "
+                << i << " -> " << node.out_arcs.size() << " vs " << chlrm_graph.nodes[i].arcs.size();
+            
+
+            for(unsigned j = 0; j < node.out_arcs.size(); ++j) {
+                auto& arc_back = node.out_arcs[j]; 
+                auto& arc_chlrm = chlrm_graph.get_arc(CHLRMArcPos(j, i));
+                auto& arc_original = combined_graph.nodes[i].out_arcs[j];
+
+                ASSERT_EQ(arc_back.other_node, arc_chlrm.to) << "Arc's other node does not match: " 
+                    << i << " -> " << arc_back.other_node << " vs " 
+                    << arc_chlrm.from << " -> " << arc_chlrm.to;
+                
+                ASSERT_EQ(arc_back.mid_node, arc_chlrm.mid_node) << "Arc's mid node does not match: "
+                    << arc_back.mid_node << " vs " << arc_chlrm.mid_node;
+                
+                ASSERT_EQ(arc_back.weight, arc_chlrm.weight) << "Arc's weight does not match: "
+                    << arc_back.weight << " vs " << arc_chlrm.weight;
+                
+                ASSERT_EQ(arc_back.label, arc_chlrm.label) << "Arc's label does not match";
+
+                ASSERT_EQ(arc_back.other_node, arc_original.other_node) << "Arc's other node does not match original graph: "
+                    << i << " -> " << arc_back.other_node << " vs " 
+                    << i << " -> " << arc_original.other_node;
+                
+                ASSERT_EQ(arc_back.mid_node, arc_original.mid_node) << "Arc's mid node does not match original graph: "
+                    << arc_back.mid_node << " vs " << arc_original.mid_node;
+                
+                ASSERT_EQ(arc_back.weight, arc_original.weight) << "Arc's weight does not match original graph: "
+                    << arc_back.weight << " vs " << arc_original.weight;
+                
+                ASSERT_EQ(arc_back.label, arc_original.label) << "Arc's label does not match original graph";
+            }
+        }
     }
+
 }
 
 TEST(CHLRM, test_graph_maintenance_synthetic) {
