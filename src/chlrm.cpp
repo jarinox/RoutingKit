@@ -9,7 +9,7 @@ CHLRMGraph::CHLRMGraph(CHLRGraph& graph) {
 
     for (unsigned i = 0; i < graph.nodes.size(); ++i) {
         nodes[i].index = i;
-        nodes[i].rank = 0;
+        nodes[i].rank = graph.nodes[i].rank;
         nodes[i].lat = graph.nodes[i].lat;
         nodes[i].lon = graph.nodes[i].lon;
 
@@ -105,7 +105,9 @@ void CHLRMGraph::maintenance(CHLRMArcPos arc_pos, unsigned new_weight, Label new
 
     if(arc.label != new_label) {
         // TODO: There is a mistake regarding the inital weight in the paper because w(new_arc) is undefined, it is not trivial how to set it.
-        auto new_arc = CHLRMArc{arc.from, arc.mid_node, arc.to, original_weight, new_label};
+        // The example however suggests that the new arch should be assigned the new weight directly.
+        // This however results in new_arc.weight > new_weight always being false as they are equal.
+        auto new_arc = CHLRMArc{arc.from, arc.mid_node, arc.to, new_weight, new_label};
         nodes[arc.from].arcs.push_back(new_arc);
         auto new_arc_pos = CHLRMArcPos{static_cast<unsigned>(nodes[arc.from].arcs.size() - 1), arc.from};
 
