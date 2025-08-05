@@ -7,6 +7,9 @@
 #include <vector>
 #include <unordered_map>
 #include <functional>
+#include <set>
+#include <memory>
+
 
 class CHLRMArcPos {
 public:
@@ -55,6 +58,8 @@ public:
     unsigned weight;
     Label label;
 
+    std::vector<CHLRMArc&> dominant_shortcut_set;
+
     CHLRMArc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) :
         from(from), mid_node(mid_node), to(to), cnt(0), weight(weight), label(label) {};
 
@@ -63,6 +68,18 @@ public:
 
     CHLRArc to_chlr() {
         return CHLRArc{to, mid_node, weight, label};
+    }
+
+    CHLRMArcPos get_pos(CHLRMGraph& graph) {
+        unsigned arc_index = 0;
+        for (const auto& arc : graph.nodes[from].arcs) {
+            if (arc.from == from && arc.mid_node == mid_node && arc.to == to && arc.weight == weight && arc.label == label) {
+                return CHLRMArcPos(arc_index, from);
+            }
+            ++arc_index;
+        }
+
+        return CHLRMArcPos(inf_weight, inf_weight);
     }
 };
 
@@ -111,12 +128,49 @@ public:
     CHLRMArc& get_arc(CHLRMArcPos arc_pos);
     void delete_arc(CHLRMArcPos arc_pos);
 
-    unsigned calculate_weight(CHLRMArcPos arc_pos);
-    void keep_shortcut_dominance(CHLRMArcPos arc_pos, MinIDQueue& queue, std::vector<std::pair<CHLRMArcPos, bool>>& unsigned_to_arc_pos, bool increment);
-    void maintenance(CHLRMArcPos arc_pos, unsigned new_weight, Label new_label);
+    unsigned calculate_weight(CHLRMArc& arc);
+    void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, bool increment);
+    void CHLRMGraph::maintenance(CHLRMArc& e_o, unsigned w_n, Label l_n);
+    void maintenance_optimized(CHLRMArcPos original_arc_pos, unsigned new_weight, Label new_label);
+    unsigned arc_count() const {
+        unsigned count = 0;
+        for (const auto& node : nodes) {
+            count += node.arcs.size();
+        }
+        return count;
+    }
 
 private:
     void build_neighbour_index();
+};
+
+
+class MinRankQueue {
+    MinIDQueue queue;
+    std::vector<std::pair<bool, CHLRMArc&>> unsigned_to_arc;
+    std::set<std::pair<CHLRMArc, bool> > is_in_queue;
+public:
+    MinRankQueue(unsigned size) : queue(size), unsigned_to_arc(size) {}
+
+    bool empty() const {
+        return queue.empty();
+    }
+
+    void push(CHLRMArc& arc, bool increment, CHLRMGraph& graph) {
+        queue.push({arc.rank(graph), static_cast<unsigned>(unsigned_to_arc.size())});
+        is_in_queue.insert({arc, increment});
+        unsigned_to_arc.push_back({increment, arc});
+    }
+
+    std::pair<bool, CHLRMArc&> pop() {
+        auto pair = queue.pop();
+        is_in_queue.erase({unsigned_to_arc[pair.key].second, unsigned_to_arc[pair.key].first});
+        return unsigned_to_arc[pair.key];
+    }
+
+    bool contains(const CHLRMArc& arc, bool increment) const {
+        return is_in_queue.find({arc, increment}) != is_in_queue.end();
+    }
 };
 
 #endif // ROUTING_KIT_CHLRM_H
