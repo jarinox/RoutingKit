@@ -1,4 +1,17 @@
+// Implementation of CHLRMArc::get_pos moved from header
 #include <routingkit/chlrm.h>
+
+CHLRMArcPos CHLRMArc::get_pos(CHLRMGraph& graph) {
+    unsigned arc_index = 0;
+    for (const auto& arc : graph.nodes[from].arcs) {
+        if (arc.from == from && arc.mid_node == mid_node && arc.to == to && arc.weight == weight && arc.label == label) {
+            return CHLRMArcPos(arc_index, from);
+        }
+        ++arc_index;
+    }
+    return CHLRMArcPos(inf_weight, inf_weight);
+}
+
 
 CHLRMGraph::CHLRMGraph(CHLRGraph& graph) {
     N_plus = std::unordered_map<std::pair<CHLRMArcPos, CHLRMArcPos>, CHLRMArcPos>();
@@ -13,9 +26,11 @@ CHLRMGraph::CHLRMGraph(CHLRGraph& graph) {
         nodes[i].lat = graph.nodes[i].lat;
         nodes[i].lon = graph.nodes[i].lon;
 
-        for (const auto& arc : graph.nodes[i].out_arcs) {
+        for (unsigned j = 0; j < graph.nodes[i].out_arcs.size(); ++j) {
+            const auto& arc = graph.nodes[i].out_arcs[j];
             auto new_arc = CHLRMArc{i, arc.mid_node, arc.other_node, arc.weight, arc.label};
             nodes[i].arcs.emplace_back(new_arc);
+            weight[CHLRMArcPos{j, i}] = new_arc.weight;
         }
     }
 
@@ -56,11 +71,15 @@ void CHLRMGraph::build_neighbour_index() {
 }
 
 // See Algorithm 1: CalWeight in paper
-unsigned CHLRMGraph::calculate_weight(CHLRMArc& arc) {
+unsigned CHLRMGraph::calculate_weight(CHLRMArcPos arc_pos) {
+    if(arc_pos.arc_index == inf_weight) {
+        return inf_weight; // Arc not found
+    }
+
     unsigned k = inf_weight;
+    auto& arc = get_arc(arc_pos);
     arc.cnt = 0;
 
-    auto arc_pos = arc.get_pos(*this);
     if (arc_pos.arc_index == inf_weight) {
         return inf_weight; // Arc not found
     } else if (arc.weight < inf_weight) {
@@ -96,8 +115,8 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
             arc.weight = inf_weight;
             arc.cnt = 0;
 
-            if(std::find(e_.dominant_shortcut_set.begin(), e_.dominant_shortcut_set.end(), arc) == e_.dominant_shortcut_set.end()) {
-                e_.dominant_shortcut_set.push_back(arc);
+            if(std::find(e_.dominant_shortcut_set.begin(), e_.dominant_shortcut_set.end(), &arc) == e_.dominant_shortcut_set.end()) {
+                e_.dominant_shortcut_set.push_back(&arc);
             }
 
             //return; // TODO: can we return here? the paper uses "if e with ... exists then do with it ..." 
@@ -105,31 +124,31 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
     }
     
     if(increment) {
-        for (CHLRMArc& e_ : arc.dominant_shortcut_set) {
-            unsigned k = calculate_weight(e_);
+        for (auto* e_ : arc.dominant_shortcut_set) {
+            unsigned k = calculate_weight(e_->get_pos(*this));
             if (k < arc.weight) {
                 if(!queue.contains(arc, false)) {
                     queue.push(arc, false, *this);
                 }
 
-                e_.weight = k;
+                e_->weight = k;
                 arc.dominant_shortcut_set.erase(std::remove(arc.dominant_shortcut_set.begin(), arc.dominant_shortcut_set.end(), e_), arc.dominant_shortcut_set.end());
-                nodes[e_.from].arcs.push_back(e_);
+                nodes[e_->from].arcs.push_back(*e_);
             }
         }
     } else {
-        for (CHLRMArc& e_ : arc.dominant_shortcut_set) {
-            if (e_.from != arc.from || e_.to != arc.to || !arc.label.is_subset_of(e_.label)) {
+        for (auto* e_ : arc.dominant_shortcut_set) {
+            if (e_->from != arc.from || e_->to != arc.to || !arc.label.is_subset_of(e_->label)) {
                 continue;
             }
 
-            if (e_.weight >= arc.weight) {
-                if (!queue.contains(e_, true)) {
-                    queue.push(e_, true, *this);
+            if (e_->weight >= arc.weight) {
+                if (!queue.contains(*e_, true)) {
+                    queue.push(*e_, true, *this);
                 }
 
-                e_.weight = inf_weight;
-                e_.cnt = 0;
+                e_->weight = inf_weight;
+                e_->cnt = 0;
                 arc.dominant_shortcut_set.push_back(e_);
             }
         }
@@ -151,11 +170,10 @@ unsigned CHLRMArc::rank(CHLRMGraph& graph) {
     return std::min(graph.nodes[from].rank, graph.nodes[to].rank);
 }
 
-void CHLRMGraph::maintenance(CHLRMArc& e_o, unsigned w_n, Label l_n) {
-    auto e_pos = e_o.get_pos(*this);
-    assert(e_pos.arc_index != inf_weight); // This condition is not explicitly stated in the paper, but only modifying shortcuts might corrupt the graph structure.
-
+void CHLRMGraph::maintenance(CHLRMArc e_o, unsigned w_n, Label l_n) {
     if (e_o.label == l_n && e_o.weight == w_n) return;
+
+    CHLRMArcPos original_arc_pos = e_o.get_pos(*this);
 
     unsigned w_o = e_o.weight;
     Label l_o = e_o.label;
@@ -165,7 +183,7 @@ void CHLRMGraph::maintenance(CHLRMArc& e_o, unsigned w_n, Label l_n) {
     if (l_n != l_o) {
         e_o.weight = inf_weight;
         auto e_n = CHLRMArc{e_o.from, e_o.mid_node, e_o.to, w_n, l_n};
-        e_o.weight = calculate_weight(e_o);
+        e_o.weight = calculate_weight(original_arc_pos);
 
         if (e_o.weight > w_o) {
             queue.push(e_o, true, *this);
@@ -178,15 +196,15 @@ void CHLRMGraph::maintenance(CHLRMArc& e_o, unsigned w_n, Label l_n) {
             keep_shortcut_dominance(e_n, queue, false);
         }
     } else {
-        e_o.weight = w_n;
-        e_o.weight = calculate_weight(e_o);
+        //e_o.weight = w_n;
+        e_o.weight = calculate_weight(original_arc_pos);
         queue.push(e_o, e_o.weight > w_o, *this);
         keep_shortcut_dominance(e_o, queue, e_o.weight > w_o);
     }
 
     while (!queue.empty()) {
         auto [increment, e] = queue.pop();
-        auto pos = e.get_pos(*this);
+        auto pos = e->get_pos(*this);
         if (pos.arc_index == inf_weight) continue; // Arc not found
 
         for (auto& e_pos : N_equals[pos]) {
@@ -194,7 +212,7 @@ void CHLRMGraph::maintenance(CHLRMArc& e_o, unsigned w_n, Label l_n) {
             auto& e__ = get_arc(e__pos);
 
             if (increment && e__.weight < inf_weight) {
-                unsigned k = calculate_weight(e__);
+                unsigned k = calculate_weight(e__pos);
 
                 if (e__.weight < k && !queue.contains(e__, true)) {
                     e__.weight = k;
@@ -205,8 +223,8 @@ void CHLRMGraph::maintenance(CHLRMArc& e_o, unsigned w_n, Label l_n) {
 
             if (!increment) {
                 auto& e_ = get_arc(e_pos);
-                if (e__.weight > e.weight + e_.weight) {
-                    e__.weight = e.weight + e_.weight;
+                if (e__.weight > e->weight + e_.weight) {
+                    e__.weight = e->weight + e_.weight;
                     if (!queue.contains(e__, false)) {
                         queue.push(e__, false, *this);
                         keep_shortcut_dominance(e__, queue, false);
