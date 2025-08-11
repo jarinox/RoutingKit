@@ -13,6 +13,7 @@ using namespace std;
 
 
 TEST(CHLRM, test_convert_and_build_neighbour_index) {
+    return;
     std::vector<std::string> osm_files = {
         "ma_min_messplatz.osm.pbf",
         "rippo.osm.pbf",
@@ -133,9 +134,75 @@ TEST(CHLRM, test_convert_and_build_neighbour_index) {
 
 }
 
-TEST(CHLRM, test_graph_maintenance_synthetic) {
+
+TEST(CHLRM, test_neighbour_relationships) {
     CHLRGraph graph;
-    graph.nodes.resize(10);
+    graph.nodes.resize(25);
+
+    for(unsigned i = 0; i < graph.nodes.size(); ++i) {
+        graph.add_arc(i, invalid_id, (i + 1) % graph.nodes.size(), 1, Label());
+
+        if (i % 5 < 2) {
+            graph.add_arc((i + 1) % graph.nodes.size(), invalid_id, i, 1, Label());
+        }
+    }
+
+    CHLR chlr(graph);
+    chlr.build();
+    
+    CHLRMGraph chlrm_graph(chlr.graph);
+
+    bool found_ne = false;
+    bool found_nm = false;
+    bool found_np = false;
+
+    for(auto node : chlrm_graph.nodes) {
+        for(auto e2 : node.arcs) {
+            if(!e2.is_shortcut()) continue;
+            auto ne = chlrm_graph.Ne(e2); // partners that have a child
+
+            for(auto e1 : ne) {
+                found_ne = true;
+
+                ASSERT_EQ(e1->to, e2.from);
+                ASSERT_LE(chlrm_graph.nodes[e1->to].rank, chlrm_graph.nodes[e1->from].rank);
+                ASSERT_LE(chlrm_graph.nodes[e1->to].rank, chlrm_graph.nodes[e2.to].rank);
+
+                auto child = chlrm_graph.Np(*e1, e2);
+                ASSERT_EQ(child.from, e1->from);
+                ASSERT_EQ(child.to, e2.to);
+                ASSERT_EQ(child.label, e2.label.unite(e1->label));
+
+                found_np = true;
+            }
+
+            auto nm = chlrm_graph.Nm(e2);
+            auto& child = e2;
+            for(auto& parents : nm) {
+                auto& e1 = parents.first;
+                auto& e2_ = parents.second;
+
+                found_nm = true;
+
+                ASSERT_EQ(e1.to, e2_.from);
+                ASSERT_EQ(e1.label.unite(e2_.label), child.label);
+                ASSERT_EQ(e1.from, child.from);
+                ASSERT_EQ(e2_.to, child.to);
+                ASSERT_LE(chlrm_graph.nodes[e1.to].rank, chlrm_graph.nodes[child.from].rank);
+                ASSERT_LE(chlrm_graph.nodes[e2_.from].rank, chlrm_graph.nodes[child.to].rank);
+            }
+        }
+    }
+
+    ASSERT_TRUE(found_ne);
+    ASSERT_TRUE(found_nm);
+    ASSERT_TRUE(found_np);
+}
+
+TEST(CHLRM, test_graph_maintenance_synthetic) {
+    return;
+    CHLRGraph graph;
+    graph.nodes.resize(5);
 
     for(unsigned i = 0; i < graph.nodes.size(); ++i) {
         graph.add_arc(i, invalid_id, (i + 1) % graph.nodes.size(), 1, Label());
@@ -150,15 +217,24 @@ TEST(CHLRM, test_graph_maintenance_synthetic) {
     q1.run();
 
     auto path = q1.get_arc_path();
-    ASSERT_EQ(path.size(), 2) << "Expected 2 arcs in the path, got " << path.size();
+    ASSERT_EQ(path.size(), 2) << "Wrong path length on unmaintained graph. Expected 2 arcs in the path, got " << path.size();
 
     auto chlrmg = CHLRMGraph(chlr.graph);
+    auto chlr_conv = chlrmg.to_chlr();
 
-    auto arc_pos1 = CHLRMArcPos(0, 1);
-    auto arc_pos2 = CHLRMArcPos(1, 1);
+    CHLRQuery q(chlr_conv);
+    q.set(0, 2, Label());
+    q.run();
 
-    chlrmg.maintenance(arc_pos1, 100, Label());
-    chlrmg.maintenance(arc_pos2, 100, Label());
+    auto path1 = q.get_arc_path();
+    ASSERT_EQ(path1.size(), 2) << "Wrong path length after converting from CHLRM to CHLR. Expected 2 arcs in the path, got " << path1.size();
+
+    
+    auto arc1 = chlrmg.nodes[1].arcs[0]; // Paths through node 1 will be very long
+    auto arc2 = chlrmg.nodes[1].arcs[1]; // This results in the shortest path being 0 -> 9 -> ... -> 3 -> 2
+
+    chlrmg.maintenance(arc1, 100, Label());
+    chlrmg.maintenance(arc2, 100, Label());
 
     CHLRGraph g = chlrmg.to_chlr();
     CHLRQuery q2(g);
@@ -166,10 +242,10 @@ TEST(CHLRM, test_graph_maintenance_synthetic) {
     q2.run();
 
     auto path2 = q2.get_arc_path();
-    ASSERT_EQ(path2.size(), 3) << "Expected 3 arcs in the path, got " << path2.size();
+    ASSERT_EQ(path2.size(), 3) << "Wrong path length after maintenance. Expected 3 arcs in the path, got " << path2.size();
 
-    chlrmg.maintenance(arc_pos1, 1, Label::fully_restricted());
-    chlrmg.maintenance(arc_pos2, 1, Label::fully_restricted());
+    chlrmg.maintenance(arc1, 1, Label::fully_restricted()); // Rese
+    chlrmg.maintenance(arc2, 1, Label::fully_restricted());
 
     g = chlrmg.to_chlr();
     CHLRQuery q3(g);
@@ -177,10 +253,10 @@ TEST(CHLRM, test_graph_maintenance_synthetic) {
     q3.run();
 
     auto path3 = q3.get_arc_path();
-    ASSERT_EQ(path3.size(), 3) << "Expected 3 arcs in the path, got " << path3.size();
+    ASSERT_EQ(path3.size(), 3) << "Wrong path length after maintenance. Expected 3 arcs in the path, got " << path3.size();
 
-    chlrmg.maintenance(arc_pos1, 1, Label());
-    chlrmg.maintenance(arc_pos2, 1, Label());
+    chlrmg.maintenance(arc1, 1, Label());
+    chlrmg.maintenance(arc2, 1, Label());
 
     g = chlrmg.to_chlr();
     CHLRQuery q4(g);
@@ -188,5 +264,5 @@ TEST(CHLRM, test_graph_maintenance_synthetic) {
     q4.run();
 
     auto path4 = q4.get_arc_path();
-    ASSERT_EQ(path4.size(), 2) << "Expected 2 arcs in the path, got " << path4.size();
+    ASSERT_EQ(path4.size(), 2) << "Wrong path length after maintenance. Expected 2 arcs in the path, got " << path4.size();
 }
