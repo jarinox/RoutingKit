@@ -18,7 +18,7 @@ CHLRGraph::CHLRGraph(unsigned node_count, const std::vector<unsigned> &tail,
     }
 }
 
-void CHLR::build() {
+void CHLR::build(bool print_progress) {
     CHLRGraph contraction_graph = this->graph;
     order.resize(graph.nodes.size());
 
@@ -70,7 +70,8 @@ void CHLR::build() {
 
         assert(has_been_contracted.is_set(node_id));
 
-        std::cout << "Contracting, queue left " << queue.size() << " arc combinations " << graph.nodes[node_id].in_arcs.size() * graph.nodes[node_id].out_arcs.size() << std::endl;
+        if (print_progress)
+            std::cout << "Contracting, queue left " << queue.size() << " arc combinations " << graph.nodes[node_id].in_arcs.size() * graph.nodes[node_id].out_arcs.size() << std::endl;
 
 
         // Contract the node
