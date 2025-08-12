@@ -199,6 +199,63 @@ TEST(CHLRM, test_neighbour_relationships) {
     ASSERT_TRUE(found_np);
 }
 
+TEST(CHLRM, test_maintenance_on_paper_example_graph) {
+    CHLRGraph graph;
+    Label a, b, c;
+    a.set_bit(true, 0);
+    b.set_bit(true, 1);
+    c.set_bit(true, 2);
+
+    Label ab = a.unite(b);
+    Label bc = b.unite(c);
+    Label abc = ab.unite(c);
+
+    graph.nodes.resize(12);
+    graph.nodes[0].rank = 6;
+    graph.nodes[1].rank = 3;
+    graph.nodes[2].rank = 2;
+    graph.nodes[3].rank = 4;
+    graph.nodes[4].rank = 8;
+    graph.nodes[5].rank = 11;
+    graph.nodes[6].rank = 9;
+    graph.nodes[7].rank = 7;
+    graph.nodes[8].rank = 10;
+    graph.nodes[9].rank = 5;
+    graph.nodes[10].rank = 12;
+    graph.nodes[11].rank = 1;
+
+    graph.add_arc(0, invalid_id, 2, 2, a);
+    graph.add_arc(0, invalid_id, 8, 5, b);
+    graph.add_arc(1, invalid_id, 7, 2, a);
+    graph.add_arc(2, invalid_id, 8, 2, bc);
+    graph.add_arc(3, invalid_id, 5, 5, b);
+    graph.add_arc(4, invalid_id, 0, 6, b);
+    graph.add_arc(4, invalid_id, 3, 2, b);
+    graph.add_arc(6, invalid_id, 3, 5, a);
+    graph.add_arc(6, invalid_id, 5, 7, ab);
+    graph.add_arc(7, invalid_id, 8, 2, a);
+    graph.add_arc(9, invalid_id, 8, 5, b);
+    graph.add_arc(10, invalid_id, 9, 2, ab);
+    graph.add_arc(10, invalid_id, 6, 4, b);
+    graph.add_arc(10, invalid_id, 1, 3, b);
+    graph.add_arc(11, invalid_id, 0, 3, b);
+    graph.add_arc(11, invalid_id, 5, 4, b);
+
+    graph.add_arc(0, 2, 8, 4, abc);
+    graph.add_arc(4, 0, 8, 11, b);
+    graph.add_arc(4, 0, 8, 10, abc);
+    graph.add_arc(4, 11, 5, 7, b);
+    graph.add_arc(10, 6, 5, 11, ab);
+    graph.add_arc(10, 1, 7, 5, ab);
+    graph.add_arc(10, 9, 8, 7, ab);
+
+    CHLRMGraph chlrm_graph(graph);
+
+    CHLRMArc& e = chlrm_graph.nodes[3].arcs[0];
+
+    chlrm_graph.maintenance(e, 7, c);
+}
+
 TEST(CHLRM, test_graph_maintenance_synthetic) {
     return;
     CHLRGraph graph;
