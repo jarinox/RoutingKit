@@ -78,18 +78,21 @@ unsigned CHLRMGraph::calculate_weight(CHLRMArcPos arc_pos) {
 
     unsigned k = inf_weight;
     auto& arc = get_arc(arc_pos);
+    assert(arc.is_shortcut());
     arc.cnt = 0;
 
-    if (arc_pos.arc_index == inf_weight) {
-        return inf_weight; // Arc not found
-    } else if (arc.weight < inf_weight) {
-        k = arc.weight;
+    for (auto& e : nodes[arc.from].arcs) { 
+        if(e.is_shortcut()) continue;
+        if(e.to != arc.to) continue;
+        if(e.weight == inf_weight || !e.label.is_subset_of(arc.label)) continue;
+
+        k = e.weight;
         arc.cnt = 1;
     }
 
-    for (auto& parents : N_minus[arc_pos]) {
-        auto& p1 = get_arc(parents.first);
-        auto& p2 = get_arc(parents.second);
+    for (auto& parents : Nm(arc)) {
+        auto& p1 = parents.first;
+        auto& p2 = parents.second;
 
         unsigned comb_weight = p1.weight + p2.weight;
         if (comb_weight < k) {
