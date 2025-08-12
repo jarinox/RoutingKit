@@ -81,12 +81,8 @@ unsigned CHLRMGraph::calculate_weight(CHLRMArcPos arc_pos) {
     assert(arc.is_shortcut());
     arc.cnt = 0;
 
-    for (auto& e : nodes[arc.from].arcs) { 
-        if(e.is_shortcut()) continue;
-        if(e.to != arc.to) continue;
-        if(e.weight == inf_weight || !e.label.is_subset_of(arc.label)) continue;
-
-        k = e.weight;
+    k = original_arc_weight(arc);
+    if (k != inf_weight) {
         arc.cnt = 1;
     }
 
@@ -109,6 +105,18 @@ unsigned CHLRMGraph::calculate_weight(CHLRMArcPos arc_pos) {
 
 CHLRMArc& CHLRMGraph::get_arc(CHLRMArcPos arc_pos) {
     return nodes[arc_pos.node_index].arcs[arc_pos.arc_index];
+}
+
+unsigned CHLRMGraph::original_arc_weight(CHLRMArc& arc) {
+    for (auto& e : nodes[arc.from].arcs) { 
+        if(e.is_shortcut()) continue;
+        if(e.to != arc.to) continue;
+        if(e.weight == inf_weight || !e.label.is_subset_of(arc.label)) continue;
+
+        return e.weight;
+    }
+
+    return inf_weight;
 }
 
 

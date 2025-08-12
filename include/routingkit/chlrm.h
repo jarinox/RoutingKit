@@ -173,6 +173,8 @@ public:
         return count;
     }
 
+    unsigned CHLRMGraph::original_arc_weight(CHLRMArc& arc);
+
     std::vector<std::pair<CHLRMArc&, CHLRMArc&>> Nm(CHLRMArc& arc) {
         std::vector<std::pair<CHLRMArc&, CHLRMArc&>> result;
         assert(arc.is_shortcut());
