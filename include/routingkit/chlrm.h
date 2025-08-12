@@ -161,7 +161,7 @@ public:
     CHLRMArc& get_arc(CHLRMArcPos arc_pos);
     void delete_arc(CHLRMArcPos arc_pos);
 
-    unsigned calculate_weight(CHLRMArcPos arc_pos);
+    unsigned calculate_weight(CHLRMArc& arc);
     void keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, bool increment);
     void maintenance(CHLRMArc e_o, unsigned w_n, Label l_n);
     void maintenance_optimized(CHLRMArcPos original_arc_pos, unsigned new_weight, Label new_label);
@@ -173,7 +173,7 @@ public:
         return count;
     }
 
-    unsigned CHLRMGraph::original_arc_weight(CHLRMArc& arc);
+    unsigned original_arc_weight(CHLRMArc& arc);
 
     std::vector<std::pair<CHLRMArc&, CHLRMArc&>> Nm(CHLRMArc& arc) {
         std::vector<std::pair<CHLRMArc&, CHLRMArc&>> result;
