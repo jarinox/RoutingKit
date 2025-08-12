@@ -148,19 +148,19 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
             }
         }
     } else {
-        for (auto* e_ : arc.dominant_shortcut_set) {
-            if (e_->from != arc.from || e_->to != arc.to || !arc.label.is_subset_of(e_->label)) {
+        for (CHLRMArc e_ : nodes[arc.from].arcs) {
+            if (e_.to != arc.to || !arc.label.is_subset_of(e_.label)) {
                 continue;
             }
 
-            if (e_->weight >= arc.weight) {
-                if (!queue.contains(*e_, true)) {
-                    queue.push(*e_, true, *this);
+            if (e_.weight >= arc.weight) {
+                if (!queue.contains(e_, true)) {
+                    queue.push(e_, true, *this);
                 }
 
-                e_->weight = inf_weight;
-                e_->cnt = 0;
-                arc.dominant_shortcut_set.push_back(e_);
+                e_.weight = inf_weight;
+                e_.cnt = 0;
+                arc.dominant_shortcut_set.push_back(&e_);
             }
         }
     }
