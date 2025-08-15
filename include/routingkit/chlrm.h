@@ -179,7 +179,7 @@ public:
 
     unsigned calculate_weight(CHLRMArc& arc);
     void keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, bool increment);
-    void maintenance(CHLRMArc e_o, unsigned w_n, Label l_n);
+    void maintenance(CHLRMArc& e_o, unsigned w_n, Label l_n);
     void maintenance_optimized(CHLRMArcPos original_arc_pos, unsigned new_weight, Label new_label);
     unsigned arc_count() const {
         unsigned count = 0;

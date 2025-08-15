@@ -73,14 +73,16 @@ void CHLRMGraph::build_neighbour_index() {
 // See Algorithm 1: CalWeight in paper
 unsigned CHLRMGraph::calculate_weight(CHLRMArc& arc) {
     unsigned k = inf_weight;
-    assert(arc.is_shortcut());
     arc.cnt = 0;
 
-    k = original_arc_weight(arc);
-    if (k != inf_weight) {
-        arc.cnt = 1;
-    }
+    if(!arc.is_shortcut()) {
+        if(arc.weight < inf_weight) {
+            arc.cnt = 1;
+        }
 
+        return arc.weight;
+    }
+    
     for (auto& parents : Nm(arc)) {
         auto& p1 = parents.first;
         auto& p2 = parents.second;
@@ -106,7 +108,7 @@ unsigned CHLRMGraph::original_arc_weight(CHLRMArc& arc) {
     for (auto& e : nodes[arc.from].arcs) { 
         if(e.is_shortcut()) continue;
         if(e.to != arc.to) continue;
-        if(e.weight == inf_weight || !e.label.is_subset_of(arc.label)) continue;
+        if(e.weight >= inf_weight || !e.label.is_subset_of(arc.label)) continue;
 
         return e.weight;
     }
@@ -176,18 +178,16 @@ unsigned CHLRMArc::rank(CHLRMGraph& graph) {
     return std::min(graph.nodes[from].rank, graph.nodes[to].rank);
 }
 
-void CHLRMGraph::maintenance(CHLRMArc e_o, unsigned w_n, Label l_n) {
+void CHLRMGraph::maintenance(CHLRMArc& e_o, unsigned w_n, Label l_n) {
     if (e_o.label == l_n && e_o.weight == w_n) return;
     unsigned w_o = e_o.weight;
     Label l_o = e_o.label;
 
-    MinRankQueue queue(arc_count());
+    MinRankQueue queue(nodes.size()*100+64);
 
     if (l_n != l_o) {
         e_o.weight = inf_weight;
         auto e_n = CHLRMArc{e_o.from, e_o.mid_node, e_o.to, w_n, l_n};
-        e_n.weight = original_arc_weight(e_n);
-
         e_o.weight = calculate_weight(e_o);
 
         if (e_o.weight > w_o) {
@@ -195,7 +195,7 @@ void CHLRMGraph::maintenance(CHLRMArc e_o, unsigned w_n, Label l_n) {
             keep_shortcut_dominance(e_o, queue, true);
         }
 
-        if (e_n.weight > w_n) {
+        if (original_arc_weight(e_n) >= w_n) {
             e_n.weight = w_n;
             queue.push(e_n, false, *this);
             keep_shortcut_dominance(e_n, queue, false);
