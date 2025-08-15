@@ -23,22 +23,22 @@ TEST(CHLRM, test_min_rank_queue) {
     CHLRMGraph g(chlr.graph);
     MinRankQueue queue(g.nodes.size()*100+64);
     
-    queue.push(g.nodes[0].arcs[0], true, g);
-    queue.push(g.nodes[0].arcs[1], false, g);
+    queue.push(g.nodes[0].arcs[0].get_pos(g), true, g);
+    queue.push(g.nodes[0].arcs[1].get_pos(g), false, g);
 
     ASSERT_FALSE(queue.empty());
     auto arc_pair = queue.pop();
     ASSERT_FALSE(arc_pair.first);
-    ASSERT_EQ(arc_pair.second->from, 0);
-    ASSERT_EQ(arc_pair.second->to, 1);
-    ASSERT_EQ(arc_pair.second->weight, 20);
-    
+    ASSERT_EQ(g.get_arc(arc_pair.second).from, 0);
+    ASSERT_EQ(g.get_arc(arc_pair.second).to, 1);
+    ASSERT_EQ(g.get_arc(arc_pair.second).weight, 20);
+
     ASSERT_FALSE(queue.empty());
     arc_pair = queue.pop();
     ASSERT_TRUE(arc_pair.first);
-    ASSERT_EQ(arc_pair.second->from, 0);
-    ASSERT_EQ(arc_pair.second->to, 1);
-    ASSERT_EQ(arc_pair.second->weight, 10);
+    ASSERT_EQ(g.get_arc(arc_pair.second).from, 0);
+    ASSERT_EQ(g.get_arc(arc_pair.second).to, 1);
+    ASSERT_EQ(g.get_arc(arc_pair.second).weight, 10);
 
     ASSERT_TRUE(queue.empty());
 }
@@ -284,11 +284,10 @@ TEST(CHLRM, test_maintenance_on_paper_example_graph) {
 
     CHLRMArc& e = chlrm_graph.nodes[3].arcs[0];
 
-    chlrm_graph.maintenance(e, 7, c);
+    chlrm_graph.maintenance(e.get_pos(chlrm_graph), 7, c);
 }
 
 TEST(CHLRM, test_graph_maintenance_synthetic) {
-    return;
     CHLRGraph graph;
     graph.nodes.resize(5);
 
@@ -321,8 +320,8 @@ TEST(CHLRM, test_graph_maintenance_synthetic) {
     auto arc1 = chlrmg.nodes[1].arcs[0]; // Paths through node 1 will be very long
     auto arc2 = chlrmg.nodes[1].arcs[1]; // This results in the shortest path being 0 -> 9 -> ... -> 3 -> 2
 
-    chlrmg.maintenance(arc1, 100, Label());
-    chlrmg.maintenance(arc2, 100, Label());
+    chlrmg.maintenance(arc1.get_pos(chlrmg), 100, Label());
+    chlrmg.maintenance(arc2.get_pos(chlrmg), 100, Label());
 
     CHLRGraph g = chlrmg.to_chlr();
     CHLRQuery q2(g);
@@ -332,8 +331,8 @@ TEST(CHLRM, test_graph_maintenance_synthetic) {
     auto path2 = q2.get_arc_path();
     ASSERT_EQ(path2.size(), 3) << "Wrong path length after maintenance. Expected 3 arcs in the path, got " << path2.size();
 
-    chlrmg.maintenance(arc1, 1, Label::fully_restricted()); // Rese
-    chlrmg.maintenance(arc2, 1, Label::fully_restricted());
+    chlrmg.maintenance(arc1.get_pos(chlrmg), 1, Label::fully_restricted()); // Rese
+    chlrmg.maintenance(arc2.get_pos(chlrmg), 1, Label::fully_restricted());
 
     g = chlrmg.to_chlr();
     CHLRQuery q3(g);
@@ -343,8 +342,8 @@ TEST(CHLRM, test_graph_maintenance_synthetic) {
     auto path3 = q3.get_arc_path();
     ASSERT_EQ(path3.size(), 3) << "Wrong path length after maintenance. Expected 3 arcs in the path, got " << path3.size();
 
-    chlrmg.maintenance(arc1, 1, Label());
-    chlrmg.maintenance(arc2, 1, Label());
+    chlrmg.maintenance(arc1.get_pos(chlrmg), 1, Label());
+    chlrmg.maintenance(arc2.get_pos(chlrmg), 1, Label());
 
     g = chlrmg.to_chlr();
     CHLRQuery q4(g);

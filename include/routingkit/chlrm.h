@@ -63,7 +63,7 @@ public:
     unsigned weight;
     Label label;
 
-    std::vector<CHLRMArc*> dominant_shortcut_set;
+    std::vector<CHLRMArcPos> dominant_shortcut_set;
 
     CHLRMArc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) :
         from(from), mid_node(mid_node), to(to), cnt(0), weight(weight), label(label) {};
@@ -88,8 +88,8 @@ public:
 
 class MinRankQueue {
     MinIDQueue queue;
-    std::vector<std::vector<std::pair<bool, CHLRMArc*>>> unsigned_to_arc;
-    std::set<std::pair<CHLRMArc, bool> > is_in_queue;
+    std::vector<std::vector<std::pair<bool, CHLRMArcPos>>> unsigned_to_arc;
+    std::set<std::pair<CHLRMArcPos, bool>> is_in_queue;
 public:
     MinRankQueue(unsigned size) : queue(size), unsigned_to_arc(size) {}
 
@@ -97,26 +97,15 @@ public:
         return queue.empty();
     }
 
-    void push(CHLRMArc& arc, bool increment, CHLRMGraph& graph) {
-        unsigned arc_priority = arc.rank(graph)*100+__builtin_popcount(arc.label.get_label());
+    void push(CHLRMArcPos arc_pos, bool increment, CHLRMGraph& graph);
 
-        if(queue.contains_id(arc_priority)) {
-            unsigned_to_arc[queue.get_key(arc_priority)].push_back({increment, &arc});
-        } else {
-            queue.push({arc_priority, static_cast<unsigned>(unsigned_to_arc.size())});
-            unsigned_to_arc.push_back({{increment, &arc}});
-        }
-
-        is_in_queue.insert({arc, increment});
-    }
-
-    std::pair<bool, CHLRMArc*> pop() {
+    std::pair<bool, CHLRMArcPos> pop() {
         auto vec = queue.peek();
 
         auto pair = unsigned_to_arc[vec.key].back();
         unsigned_to_arc[vec.key].pop_back();
 
-        is_in_queue.erase({*pair.second, pair.first});
+        is_in_queue.erase({pair.second, pair.first});
 
         if(unsigned_to_arc[vec.key].empty()) {
             queue.pop();
@@ -125,7 +114,7 @@ public:
         return pair;
     }
 
-    bool contains(const CHLRMArc& arc, bool increment) const {
+    bool contains(const CHLRMArcPos arc, bool increment) const {
         return is_in_queue.find({arc, increment}) != is_in_queue.end();
     }
 };
@@ -178,8 +167,8 @@ public:
     void delete_arc(CHLRMArcPos arc_pos);
 
     unsigned calculate_weight(CHLRMArc& arc);
-    void keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, bool increment);
-    void maintenance(CHLRMArc& e_o, unsigned w_n, Label l_n);
+    void keep_shortcut_dominance(CHLRMArcPos arc, MinRankQueue& queue, bool increment);
+    void maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n);
     void maintenance_optimized(CHLRMArcPos original_arc_pos, unsigned new_weight, Label new_label);
     unsigned arc_count() const {
         unsigned count = 0;
@@ -197,13 +186,13 @@ public:
         if(!arc.is_shortcut()) return result;
 
         for(CHLRMArc& e1 : nodes[arc.from].arcs) {
-            if(!e1.is_shortcut() || e1.to == arc.to) continue;
+            if(e1.to == arc.to) continue;
             unsigned rank_mid = nodes[e1.to].rank;
             if(rank_mid >= nodes[arc.from].rank) continue;
             if(rank_mid >= nodes[arc.to].rank) continue;
 
             for(CHLRMArc& e2 : nodes[e1.to].arcs) {
-                if(!e2.is_shortcut() || e2.to != arc.to) continue;
+                if(e2.to != arc.to) continue;
                 if(e1.label.unite(e2.label) != arc.label) continue;
                 
                 result.emplace_back(e1, e2);
@@ -214,11 +203,10 @@ public:
     }   
 
     CHLRMArc& Np(CHLRMArc& e1, CHLRMArc& e2) {
-        //assert(e1.is_shortcut() && e2.is_shortcut());
         assert(e1.to == e2.from);
 
         for(CHLRMArc& arc : nodes[e1.from].arcs) {
-            if(!arc.is_shortcut() || arc.to != e2.to) continue;
+            if(arc.to != e2.to) continue;
             if(arc.label != e1.label.unite(e2.label)) continue;
 
             unsigned from_rank = nodes[e1.from].rank;
@@ -234,11 +222,10 @@ public:
     }
 
     bool have_child(CHLRMArc& e1, CHLRMArc& e2) {
-        //assert(e1.is_shortcut() && e2.is_shortcut());
         assert(e1.to == e2.from);
 
         for(CHLRMArc& arc : nodes[e1.from].arcs) {
-            if(!arc.is_shortcut() || arc.to != e2.to) continue;
+            if(arc.to != e2.to) continue;
             if(arc.label != e1.label.unite(e2.label)) continue;
             if(nodes[arc.from].rank <= nodes[e1.to].rank) continue;
             if(nodes[arc.to].rank <= nodes[e2.from].rank) continue;
@@ -249,9 +236,7 @@ public:
     }
 
     std::vector<CHLRMArc*> Ne(CHLRMArc& e2) {
-        //assert(e2.is_shortcut());
         std::vector<CHLRMArc*> result;
-        if(!e2.is_shortcut()) return result;
 
         for(CHLRMNode& node : nodes) {
             for(CHLRMArc& e1 : node.arcs) {
