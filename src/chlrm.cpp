@@ -217,9 +217,10 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
 
     while (!queue.empty()) {
         auto [increment, e] = queue.pop();
+        CHLRMArc& ref_e = get_arc(e);
 
-        for (auto& e_ : Ne(get_arc(e))) {
-            auto& e__ = Np(*e_, get_arc(e));
+        for (auto& e_ : Ne(ref_e)) {
+            auto& e__ = Np(*e_, ref_e);
             CHLRMArcPos e__pos = e__.get_pos(*this);
 
             if (increment && e__.weight < inf_weight) {
@@ -251,10 +252,11 @@ void MinRankQueue::push(CHLRMArcPos arc_pos, bool increment, CHLRMGraph& graph) 
     unsigned arc_priority = arc.rank(graph)*100+__builtin_popcount(arc.label.get_label());
 
     if(queue.contains_id(arc_priority)) {
-        unsigned_to_arc[queue.get_key(arc_priority)].push_back({increment, arc_pos});
+        unsigned_to_arc[queue.get_key(arc_priority)].push({increment, arc_pos});
     } else {
         queue.push({arc_priority, static_cast<unsigned>(unsigned_to_arc.size())});
-        unsigned_to_arc.push_back({{increment, arc_pos}});
+        unsigned_to_arc.push_back(std::queue<std::pair<bool, CHLRMArcPos>>{});
+        unsigned_to_arc.back().push({increment, arc_pos});
     }
 
     is_in_queue.insert({arc_pos, increment});

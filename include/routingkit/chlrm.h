@@ -9,6 +9,7 @@
 #include <functional>
 #include <set>
 #include <memory>
+#include <queue>
 
 
 class CHLRMArcPos {
@@ -88,7 +89,7 @@ public:
 
 class MinRankQueue {
     MinIDQueue queue;
-    std::vector<std::vector<std::pair<bool, CHLRMArcPos>>> unsigned_to_arc;
+    std::vector<std::queue<std::pair<bool, CHLRMArcPos>>> unsigned_to_arc;
     std::set<std::pair<CHLRMArcPos, bool>> is_in_queue;
 public:
     MinRankQueue(unsigned size) : queue(size), unsigned_to_arc(size) {}
@@ -102,8 +103,8 @@ public:
     std::pair<bool, CHLRMArcPos> pop() {
         auto vec = queue.peek();
 
-        auto pair = unsigned_to_arc[vec.key].back();
-        unsigned_to_arc[vec.key].pop_back();
+        auto pair = unsigned_to_arc[vec.key].front();
+        unsigned_to_arc[vec.key].pop();
 
         is_in_queue.erase({pair.second, pair.first});
 
