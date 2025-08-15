@@ -88,7 +88,7 @@ public:
 
 class MinRankQueue {
     MinIDQueue queue;
-    std::vector<std::pair<bool, CHLRMArc*>> unsigned_to_arc;
+    std::vector<std::vector<std::pair<bool, CHLRMArc*>>> unsigned_to_arc;
     std::set<std::pair<CHLRMArc, bool> > is_in_queue;
 public:
     MinRankQueue(unsigned size) : queue(size), unsigned_to_arc(size) {}
@@ -98,15 +98,31 @@ public:
     }
 
     void push(CHLRMArc& arc, bool increment, CHLRMGraph& graph) {
-        queue.push({arc.rank(graph), static_cast<unsigned>(unsigned_to_arc.size())});
+        unsigned arc_priority = arc.rank(graph)*100+__builtin_popcount(arc.label.get_label());
+
+        if(queue.contains_id(arc_priority)) {
+            unsigned_to_arc[queue.get_key(arc_priority)].push_back({increment, &arc});
+        } else {
+            queue.push({arc_priority, static_cast<unsigned>(unsigned_to_arc.size())});
+            unsigned_to_arc.push_back({{increment, &arc}});
+        }
+
         is_in_queue.insert({arc, increment});
-        unsigned_to_arc.push_back({increment, &arc});
     }
 
     std::pair<bool, CHLRMArc*> pop() {
-        auto pair = queue.pop();
-        is_in_queue.erase({*unsigned_to_arc[pair.key].second, unsigned_to_arc[pair.key].first});
-        return unsigned_to_arc[pair.key];
+        auto vec = queue.peek();
+
+        auto pair = unsigned_to_arc[vec.key].back();
+        unsigned_to_arc[vec.key].pop_back();
+
+        is_in_queue.erase({*pair.second, pair.first});
+
+        if(unsigned_to_arc[vec.key].empty()) {
+            queue.pop();
+        }
+
+        return pair;
     }
 
     bool contains(const CHLRMArc& arc, bool increment) const {
@@ -178,6 +194,7 @@ public:
     std::vector<std::pair<CHLRMArc&, CHLRMArc&>> Nm(CHLRMArc& arc) {
         std::vector<std::pair<CHLRMArc&, CHLRMArc&>> result;
         assert(arc.is_shortcut());
+        if(!arc.is_shortcut()) return result;
 
         for(CHLRMArc& e1 : nodes[arc.from].arcs) {
             if(!e1.is_shortcut() || e1.to == arc.to) continue;
@@ -197,7 +214,7 @@ public:
     }   
 
     CHLRMArc& Np(CHLRMArc& e1, CHLRMArc& e2) {
-        assert(e1.is_shortcut() && e2.is_shortcut());
+        //assert(e1.is_shortcut() && e2.is_shortcut());
         assert(e1.to == e2.from);
 
         for(CHLRMArc& arc : nodes[e1.from].arcs) {
@@ -217,7 +234,7 @@ public:
     }
 
     bool have_child(CHLRMArc& e1, CHLRMArc& e2) {
-        assert(e1.is_shortcut() && e2.is_shortcut());
+        //assert(e1.is_shortcut() && e2.is_shortcut());
         assert(e1.to == e2.from);
 
         for(CHLRMArc& arc : nodes[e1.from].arcs) {
@@ -232,12 +249,13 @@ public:
     }
 
     std::vector<CHLRMArc*> Ne(CHLRMArc& e2) {
-        assert(e2.is_shortcut());
+        //assert(e2.is_shortcut());
         std::vector<CHLRMArc*> result;
+        if(!e2.is_shortcut()) return result;
 
         for(CHLRMNode& node : nodes) {
             for(CHLRMArc& e1 : node.arcs) {
-                if(!e1.is_shortcut() || e1.to != e2.from) continue;
+                if(e1.to != e2.from) continue;
                 if(!have_child(e1, e2)) continue;
 
                 result.push_back(&e1);
