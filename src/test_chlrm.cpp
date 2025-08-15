@@ -11,6 +11,37 @@
 using namespace RoutingKit;
 using namespace std;
 
+TEST(CHLRM, test_min_rank_queue) {
+    CHLRGraph graph;
+    graph.nodes.resize(10);
+    graph.add_arc(0, invalid_id, 1, 10, Label());
+    graph.add_arc(0, invalid_id, 1, 20, Label());
+
+    CHLR chlr(graph);
+    chlr.build();
+
+    CHLRMGraph g(chlr.graph);
+    MinRankQueue queue(g.nodes.size()*100+64);
+    
+    queue.push(g.nodes[0].arcs[0], true, g);
+    queue.push(g.nodes[0].arcs[1], false, g);
+
+    ASSERT_FALSE(queue.empty());
+    auto arc_pair = queue.pop();
+    ASSERT_FALSE(arc_pair.first);
+    ASSERT_EQ(arc_pair.second->from, 0);
+    ASSERT_EQ(arc_pair.second->to, 1);
+    ASSERT_EQ(arc_pair.second->weight, 20);
+    
+    ASSERT_FALSE(queue.empty());
+    arc_pair = queue.pop();
+    ASSERT_TRUE(arc_pair.first);
+    ASSERT_EQ(arc_pair.second->from, 0);
+    ASSERT_EQ(arc_pair.second->to, 1);
+    ASSERT_EQ(arc_pair.second->weight, 10);
+
+    ASSERT_TRUE(queue.empty());
+}
 
 TEST(CHLRM, test_convert_and_build_neighbour_index) {
     return;
