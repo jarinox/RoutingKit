@@ -104,21 +104,7 @@ public:
     }
 
     void push(CHLRMArc arc, bool increment, CHLRMGraph& graph);
-
-    std::pair<bool, CHLRMArc> pop() {
-        auto vec = queue.peek();
-
-        auto pair = unsigned_to_arc[vec.key].front();
-        unsigned_to_arc[vec.key].pop();
-
-        is_in_queue.erase({pair.second, pair.first});
-
-        if(unsigned_to_arc[vec.key].empty()) {
-            queue.pop();
-        }
-
-        return pair;
-    }
+    std::pair<bool, CHLRMArc> pop();
 
     bool contains(const CHLRMArc arc, bool increment) const {
         return is_in_queue.find({arc, increment}) != is_in_queue.end();

@@ -75,11 +75,9 @@ unsigned CHLRMGraph::calculate_weight(CHLRMArc& arc) {
     unsigned k = inf_weight;
     arc.cnt = 0;
 
-    if(!arc.is_shortcut()) {
-        if(arc.weight < inf_weight) {
-            arc.cnt = 1;
-            k = arc.weight;
-        }
+    if(!arc.is_shortcut() && arc.weight < inf_weight) {
+        arc.cnt = 1;
+        k = arc.weight;
     }
     
     for (auto& parents : Nm(arc)) {
@@ -103,15 +101,17 @@ CHLRMArc& CHLRMGraph::get_arc(CHLRMArcPos arc_pos) {
 }
 
 unsigned CHLRMGraph::original_arc_weight(CHLRMArc& arc) {
+    unsigned k = inf_weight;
+
     for (auto& e : nodes[arc.from].arcs) { 
         if(e.is_shortcut()) continue;
         if(e.to != arc.to) continue;
-        if(e.weight >= inf_weight || !e.label.is_subset_of(arc.label)) continue;
+        if(e.weight > k || !e.label.is_subset_of(arc.label)) continue;
 
-        return e.weight;
+        k = e.weight;
     }
-
-    return inf_weight;
+    
+    return k;
 }
 
 
@@ -188,7 +188,9 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
     if (l_n != l_o) {
         e_o.weight = inf_weight;
         auto e_n = CHLRMArc{e_o.from, e_o.mid_node, e_o.to, w_n, l_n};
+        nodes[e_n.from].arcs.push_back(e_n);
         
+        e_o = get_arc(e_o_pos);
         unsigned k = calculate_weight(e_o);
         e_o = get_arc(e_o_pos);
         e_o.weight = k;
@@ -254,4 +256,19 @@ void MinRankQueue::push(CHLRMArc arc, bool increment, CHLRMGraph& graph) {
     }
 
     is_in_queue.insert({arc, increment});
+}
+
+std::pair<bool, CHLRMArc> MinRankQueue::pop() {
+    auto vec = queue.peek();
+
+    auto pair = unsigned_to_arc[vec.key].front();
+    unsigned_to_arc[vec.key].pop();
+
+    is_in_queue.erase({pair.second, pair.first});
+
+    if(unsigned_to_arc[vec.key].empty()) {
+        queue.pop();
+    }
+
+    return pair;
 }
