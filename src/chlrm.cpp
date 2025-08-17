@@ -78,9 +78,8 @@ unsigned CHLRMGraph::calculate_weight(CHLRMArc& arc) {
     if(!arc.is_shortcut()) {
         if(arc.weight < inf_weight) {
             arc.cnt = 1;
+            k = arc.weight;
         }
-
-        return arc.weight;
     }
     
     for (auto& parents : Nm(arc)) {
@@ -91,8 +90,7 @@ unsigned CHLRMGraph::calculate_weight(CHLRMArc& arc) {
         if (comb_weight < k) {
             k = comb_weight;
             arc.cnt = 1;
-        } else if (comb_weight == k)
-        {
+        } else if (comb_weight == k) {
             arc.cnt++;
         }
     }
@@ -117,15 +115,15 @@ unsigned CHLRMGraph::original_arc_weight(CHLRMArc& arc) {
 }
 
 
-void CHLRMGraph::keep_shortcut_dominance(CHLRMArcPos arc_pos, MinRankQueue& queue, bool increment) {
-    auto& arc = get_arc(arc_pos);
+void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, bool increment) {
     for(auto& e_ : nodes[arc.from].arcs) {
+        if(e_ == arc) continue;
         if(e_.to == arc.to && e_.label.is_subset_of(arc.label) && e_.weight <= arc.weight){
             arc.weight = inf_weight;
             arc.cnt = 0;
 
-            if(std::find(e_.dominant_shortcut_set.begin(), e_.dominant_shortcut_set.end(), arc_pos) == e_.dominant_shortcut_set.end()) {
-                e_.dominant_shortcut_set.push_back(arc_pos);
+            if(std::find(e_.dominant_shortcut_set.begin(), e_.dominant_shortcut_set.end(), arc) == e_.dominant_shortcut_set.end()) {
+                e_.dominant_shortcut_set.push_back(arc);
             }
 
             //return; // TODO: can we return here? the paper uses "if e with ... exists then do with it ..." 
@@ -133,35 +131,33 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArcPos arc_pos, MinRankQueue& queu
     }
     
     if(increment) {
-        for (auto e_pos : arc.dominant_shortcut_set) {
-            unsigned k = calculate_weight(get_arc(e_pos));
+        for (auto& e_ : arc.dominant_shortcut_set) {
+            unsigned k = calculate_weight(e_);
             if (k < arc.weight) {
-                if(!queue.contains(arc_pos, false)) {
-                    queue.push(arc_pos, false, *this);
+                if(!queue.contains(e_, false)) {
+                    queue.push(e_, false, *this);
                 }
 
-                get_arc(e_pos).weight = k;
-                arc.dominant_shortcut_set.erase(std::remove(arc.dominant_shortcut_set.begin(), arc.dominant_shortcut_set.end(), e_pos), arc.dominant_shortcut_set.end());
-                nodes[get_arc(e_pos).from].arcs.push_back(get_arc(e_pos));
+                find_arc(e_).weight = k;
+                arc.dominant_shortcut_set.erase(std::remove(arc.dominant_shortcut_set.begin(), arc.dominant_shortcut_set.end(), e_), arc.dominant_shortcut_set.end());
+                add_arc(e_, true);
             }
         }
     } else {
 
-        for (unsigned e_arci = 0; e_arci < nodes[arc.from].arcs.size(); ++e_arci) {
-            CHLRMArcPos e_pos = CHLRMArcPos{e_arci, arc.from};
-            CHLRMArc& e_ = get_arc(e_pos);
+        for (auto& e_ : nodes[arc.from].arcs) {
             if (e_.to != arc.to || !arc.label.is_subset_of(e_.label)) {
                 continue;
             }
 
             if (e_.weight >= arc.weight) {
-                if (!queue.contains(e_pos, true)) {
-                    queue.push(e_pos, true, *this);
+                if (!queue.contains(e_, true)) {
+                    queue.push(e_, true, *this);
                 }
 
                 e_.weight = inf_weight;
                 e_.cnt = 0;
-                arc.dominant_shortcut_set.push_back(e_pos);
+                arc.dominant_shortcut_set.push_back(e_);
             }
         }
     }
@@ -192,53 +188,52 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
     if (l_n != l_o) {
         e_o.weight = inf_weight;
         auto e_n = CHLRMArc{e_o.from, e_o.mid_node, e_o.to, w_n, l_n};
-        CHLRMArcPos e_n_pos = CHLRMArcPos{nodes[e_o.from].arcs.size(), e_o.from};
-        nodes[e_n.from].arcs.push_back(e_n);
         
+        unsigned k = calculate_weight(e_o);
         e_o = get_arc(e_o_pos);
-        e_o.weight = calculate_weight(e_o);
+        e_o.weight = k;
 
         if (get_arc(e_o_pos).weight > w_o) {
-            queue.push(e_o_pos, true, *this);
-            keep_shortcut_dominance(e_o_pos, queue, true);
+            queue.push(get_arc(e_o_pos), true, *this);
+            keep_shortcut_dominance(get_arc(e_o_pos), queue, true);
         }
 
         if (original_arc_weight(e_n) >= w_n) {
             e_n.weight = w_n;
-            queue.push(e_n_pos, false, *this);
-            keep_shortcut_dominance(e_n_pos, queue, false);
+            queue.push(e_n, false, *this);
+            keep_shortcut_dominance(e_n, queue, false);
         }
     } else {
         e_o.weight = w_n;
-        e_o.weight = calculate_weight(e_o);
-        queue.push(e_o_pos, e_o.weight > w_o, *this);
-        keep_shortcut_dominance(e_o_pos, queue, e_o.weight > w_o);
+        unsigned k = calculate_weight(e_o);
+        e_o = get_arc(e_o_pos);
+        e_o.weight = k;
+
+        queue.push(e_o, e_o.weight > w_o, *this);
+        keep_shortcut_dominance(e_o, queue, e_o.weight > w_o);
     }
 
     while (!queue.empty()) {
         auto [increment, e] = queue.pop();
-        CHLRMArc& ref_e = get_arc(e);
 
-        for (auto& e_ : Ne(ref_e)) {
-            auto& e__ = Np(*e_, ref_e);
-            CHLRMArcPos e__pos = e__.get_pos(*this);
-
+        for (auto& e_ : Ne(e)) {
+            auto& e__ = Np(*e_, e);
             if (increment && e__.weight < inf_weight) {
                 unsigned k = calculate_weight(e__);
 
-                if (e__.weight < k && !queue.contains(e__pos, true)) {
+                if (e__.weight < k && !queue.contains(e__, true)) {
                     e__.weight = k;
-                    queue.push(e__pos, true, *this);
-                    keep_shortcut_dominance(e__pos, queue, true);
+                    queue.push(e__, true, *this);
+                    keep_shortcut_dominance(e__, queue, true);
                 }
             }
 
             if (!increment) {
-                if (e__.weight > get_arc(e).weight + e_->weight) {
-                    e__.weight = get_arc(e).weight + e_->weight;
-                    if (!queue.contains(e__pos, false)) {
-                        queue.push(e__pos, false, *this);
-                        keep_shortcut_dominance(e__pos, queue, false);
+                if (e__.weight > e.weight + e_->weight) {
+                    e__.weight = e.weight + e_->weight;
+                    if (!queue.contains(e__, false)) {
+                        queue.push(e__, false, *this);
+                        keep_shortcut_dominance(e__, queue, false);
                     }
                 }
             }
@@ -247,17 +242,16 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
 }
 
 
-void MinRankQueue::push(CHLRMArcPos arc_pos, bool increment, CHLRMGraph& graph) {
-    CHLRMArc& arc = graph.get_arc(arc_pos);
+void MinRankQueue::push(CHLRMArc arc, bool increment, CHLRMGraph& graph) {
     unsigned arc_priority = arc.rank(graph)*100+__builtin_popcount(arc.label.get_label());
 
     if(queue.contains_id(arc_priority)) {
-        unsigned_to_arc[queue.get_key(arc_priority)].push({increment, arc_pos});
+        unsigned_to_arc[queue.get_key(arc_priority)].push({increment, arc});
     } else {
         queue.push({arc_priority, static_cast<unsigned>(unsigned_to_arc.size())});
-        unsigned_to_arc.push_back(std::queue<std::pair<bool, CHLRMArcPos>>{});
-        unsigned_to_arc.back().push({increment, arc_pos});
+        unsigned_to_arc.push_back(std::queue<std::pair<bool, CHLRMArc>>{});
+        unsigned_to_arc.back().push({increment, arc});
     }
 
-    is_in_queue.insert({arc_pos, increment});
+    is_in_queue.insert({arc, increment});
 }

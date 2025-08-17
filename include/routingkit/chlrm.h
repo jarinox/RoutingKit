@@ -64,7 +64,7 @@ public:
     unsigned weight;
     Label label;
 
-    std::vector<CHLRMArcPos> dominant_shortcut_set;
+    std::vector<CHLRMArc> dominant_shortcut_set;
 
     CHLRMArc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) :
         from(from), mid_node(mid_node), to(to), cnt(0), weight(weight), label(label) {};
@@ -85,12 +85,17 @@ public:
                (to == other.to && (weight < other.weight || 
                (weight == other.weight && label < other.label)))))));
     }
+
+    bool operator==(const CHLRMArc& other) const {
+        return from == other.from && mid_node == other.mid_node && to == other.to &&
+               weight == other.weight && label == other.label;
+    }
 };
 
 class MinRankQueue {
     MinIDQueue queue;
-    std::vector<std::queue<std::pair<bool, CHLRMArcPos>>> unsigned_to_arc;
-    std::set<std::pair<CHLRMArcPos, bool>> is_in_queue;
+    std::vector<std::queue<std::pair<bool, CHLRMArc>>> unsigned_to_arc;
+    std::set<std::pair<CHLRMArc, bool>> is_in_queue;
 public:
     MinRankQueue(unsigned size) : queue(size), unsigned_to_arc(size) {}
 
@@ -98,9 +103,9 @@ public:
         return queue.empty();
     }
 
-    void push(CHLRMArcPos arc_pos, bool increment, CHLRMGraph& graph);
+    void push(CHLRMArc arc, bool increment, CHLRMGraph& graph);
 
-    std::pair<bool, CHLRMArcPos> pop() {
+    std::pair<bool, CHLRMArc> pop() {
         auto vec = queue.peek();
 
         auto pair = unsigned_to_arc[vec.key].front();
@@ -115,7 +120,7 @@ public:
         return pair;
     }
 
-    bool contains(const CHLRMArcPos arc, bool increment) const {
+    bool contains(const CHLRMArc arc, bool increment) const {
         return is_in_queue.find({arc, increment}) != is_in_queue.end();
     }
 };
@@ -146,6 +151,8 @@ public:
 };
 
 class CHLRMGraph {
+private:
+    CHLRMArc dummy_arc{invalid_id, invalid_id, invalid_id, inf_weight, Label()};
 public:
     std::vector<CHLRMNode> nodes;
 
@@ -164,11 +171,34 @@ public:
 
     CHLRGraph to_chlr();
 
+    void add_arc(CHLRMArc arc, bool check_duplicate = false) {
+        if (check_duplicate) {
+            for (const auto& existing_arc : nodes[arc.from].arcs) {
+                if (existing_arc == arc) {
+                    return; // Arc already exists, do not add
+                }
+            }
+        }
+
+        nodes[arc.from].arcs.push_back(arc);
+    }
+
+    CHLRMArc& find_arc(CHLRMArc& arc) {
+        for (auto& node : nodes) {
+            for (auto& existing_arc : node.arcs) {
+                if (existing_arc == arc) {
+                    return existing_arc;
+                }
+            }
+        }
+        return arc; // Return the original arc if not found
+    }
+
     CHLRMArc& get_arc(CHLRMArcPos arc_pos);
     void delete_arc(CHLRMArcPos arc_pos);
 
     unsigned calculate_weight(CHLRMArc& arc);
-    void keep_shortcut_dominance(CHLRMArcPos arc, MinRankQueue& queue, bool increment);
+    void keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, bool increment);
     void maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n);
     void maintenance_optimized(CHLRMArcPos original_arc_pos, unsigned new_weight, Label new_label);
     unsigned arc_count() const {
@@ -183,8 +213,7 @@ public:
 
     std::vector<std::pair<CHLRMArc&, CHLRMArc&>> Nm(CHLRMArc& arc) {
         std::vector<std::pair<CHLRMArc&, CHLRMArc&>> result;
-        assert(arc.is_shortcut());
-        if(!arc.is_shortcut()) return result;
+        //assert(arc.is_shortcut());
 
         for(CHLRMArc& e1 : nodes[arc.from].arcs) {
             if(e1.to == arc.to) continue;
@@ -207,6 +236,7 @@ public:
         assert(e1.to == e2.from);
 
         for(CHLRMArc& arc : nodes[e1.from].arcs) {
+            if(!arc.is_shortcut()) continue;
             if(arc.to != e2.to) continue;
             if(arc.label != e1.label.unite(e2.label)) continue;
 
@@ -219,7 +249,8 @@ public:
             return arc;
         }
 
-        assert(false && "No parent arc found for the given child arcs.");
+        //assert(false && "No parent arc found for the given child arcs.");
+        return dummy_arc;
     }
 
     bool have_child(CHLRMArc& e1, CHLRMArc& e2) {
