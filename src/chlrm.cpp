@@ -192,12 +192,11 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
         
         e_o = get_arc(e_o_pos);
         unsigned k = calculate_weight(e_o);
-        e_o = get_arc(e_o_pos);
         e_o.weight = k;
 
-        if (get_arc(e_o_pos).weight > w_o) {
-            queue.push(get_arc(e_o_pos), true, *this);
-            keep_shortcut_dominance(get_arc(e_o_pos), queue, true);
+        if (e_o.weight > w_o) {
+            queue.push(e_o, true, *this);
+            keep_shortcut_dominance(e_o, queue, true);
         }
 
         if (original_arc_weight(e_n) >= w_n) {
@@ -218,8 +217,8 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
     while (!queue.empty()) {
         auto [increment, e] = queue.pop();
 
-        for (auto& e_ : Ne(e)) {
-            auto& e__ = Np(*e_, e);
+        for (auto e_ : Ne(e)) {
+            auto& e__ = Np(e_, e);
             if (increment && e__.weight < inf_weight) {
                 unsigned k = calculate_weight(e__);
 
@@ -231,8 +230,8 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
             }
 
             if (!increment) {
-                if (e__.weight > e.weight + e_->weight) {
-                    e__.weight = e.weight + e_->weight;
+                if (e__.weight > e.weight + e_.weight) {
+                    e__.weight = e.weight + e_.weight;
                     if (!queue.contains(e__, false)) {
                         queue.push(e__, false, *this);
                         keep_shortcut_dominance(e__, queue, false);

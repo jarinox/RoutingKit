@@ -197,8 +197,8 @@ public:
 
     unsigned original_arc_weight(CHLRMArc& arc);
 
-    std::vector<std::pair<CHLRMArc&, CHLRMArc&>> Nm(CHLRMArc& arc) {
-        std::vector<std::pair<CHLRMArc&, CHLRMArc&>> result;
+    std::vector<std::pair<CHLRMArc, CHLRMArc>> Nm(CHLRMArc& arc) {
+        std::vector<std::pair<CHLRMArc, CHLRMArc>> result;
         //assert(arc.is_shortcut());
 
         for(CHLRMArc& e1 : nodes[arc.from].arcs) {
@@ -253,15 +253,15 @@ public:
         return false;
     }
 
-    std::vector<CHLRMArc*> Ne(CHLRMArc& e2) {
-        std::vector<CHLRMArc*> result;
+    std::vector<CHLRMArc> Ne(CHLRMArc& e2) {
+        std::vector<CHLRMArc> result;
 
         for(CHLRMNode& node : nodes) {
             for(CHLRMArc& e1 : node.arcs) {
                 if(e1.to != e2.from) continue;
                 if(!have_child(e1, e2)) continue;
 
-                result.push_back(&e1);
+                result.push_back(e1);
             }
         }
 

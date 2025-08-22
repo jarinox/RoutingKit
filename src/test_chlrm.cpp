@@ -195,14 +195,14 @@ TEST(CHLRM, test_neighbour_relationships) {
             for(auto e1 : ne) {
                 found_ne = true;
 
-                ASSERT_EQ(e1->to, e2.from);
-                ASSERT_LE(chlrm_graph.nodes[e1->to].rank, chlrm_graph.nodes[e1->from].rank);
-                ASSERT_LE(chlrm_graph.nodes[e1->to].rank, chlrm_graph.nodes[e2.to].rank);
+                ASSERT_EQ(e1.to, e2.from);
+                ASSERT_LE(chlrm_graph.nodes[e1.to].rank, chlrm_graph.nodes[e1.from].rank);
+                ASSERT_LE(chlrm_graph.nodes[e1.to].rank, chlrm_graph.nodes[e2.to].rank);
 
-                auto child = chlrm_graph.Np(*e1, e2);
-                ASSERT_EQ(child.from, e1->from);
+                auto child = chlrm_graph.Np(e1, e2);
+                ASSERT_EQ(child.from, e1.from);
                 ASSERT_EQ(child.to, e2.to);
-                ASSERT_EQ(child.label, e2.label.unite(e1->label));
+                ASSERT_EQ(child.label, e2.label.unite(e1.label));
 
                 found_np = true;
             }
