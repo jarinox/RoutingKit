@@ -131,7 +131,7 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
     }
     
     if(increment) {
-        for (auto& e_ : arc.dominant_shortcut_set) {
+        for (auto e_ : arc.dominant_shortcut_set) {
             unsigned k = calculate_weight(e_);
             if (k < arc.weight) {
                 if(!queue.contains(e_, false)) {
@@ -145,7 +145,7 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
         }
     } else {
 
-        for (auto& e_ : nodes[arc.from].arcs) {
+        for (auto e_ : nodes[arc.from].arcs) {
             if (e_.to != arc.to || !arc.label.is_subset_of(e_.label)) {
                 continue;
             }
@@ -216,14 +216,16 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
 
     while (!queue.empty()) {
         auto [increment, e] = queue.pop();
+        std::cout << "Processing arc: " << e.from << " -> " << e.to << " w: " << e.weight << " inc: " << increment << std::endl;
+        auto partners = Ne(e);
 
-        for (auto e_ : Ne(e)) {
-            auto& e__ = Np(e_, e);
+        for (auto e_ : partners) {
+            auto e__ = Np(e_, e);
             if (increment && e__.weight < inf_weight) {
                 unsigned k = calculate_weight(e__);
 
                 if (e__.weight < k && !queue.contains(e__, true)) {
-                    e__.weight = k;
+                    find_arc(e__).weight = k;
                     queue.push(e__, true, *this);
                     keep_shortcut_dominance(e__, queue, true);
                 }
@@ -231,7 +233,7 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
 
             if (!increment) {
                 if (e__.weight > e.weight + e_.weight) {
-                    e__.weight = e.weight + e_.weight;
+                    find_arc(e__).weight = e.weight + e_.weight;
                     if (!queue.contains(e__, false)) {
                         queue.push(e__, false, *this);
                         keep_shortcut_dominance(e__, queue, false);
@@ -247,6 +249,9 @@ void MinRankQueue::push(CHLRMArc arc, bool increment, CHLRMGraph& graph) {
     unsigned arc_priority = arc.rank(graph)*100+__builtin_popcount(arc.label.get_label());
 
     if(queue.contains_id(arc_priority)) {
+        if(is_in_queue.find({arc, increment}) != is_in_queue.end()) {
+            return;
+        }
         unsigned_to_arc[queue.get_key(arc_priority)].push({increment, arc});
     } else {
         queue.push({arc_priority, static_cast<unsigned>(unsigned_to_arc.size())});

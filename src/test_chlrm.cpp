@@ -26,6 +26,10 @@ TEST(CHLRM, test_min_rank_queue) {
     queue.push(g.nodes[0].arcs[0], true, g);
     queue.push(g.nodes[0].arcs[1], false, g);
 
+    CHLRMArc e = g.nodes[0].arcs[0];
+    ASSERT_TRUE(queue.contains(e, true));
+    queue.push(e, true, g);
+
     ASSERT_FALSE(queue.empty());
     auto arc_pair = queue.pop();
     ASSERT_TRUE(arc_pair.first);
@@ -189,7 +193,6 @@ TEST(CHLRM, test_neighbour_relationships) {
 
     for(auto node : chlrm_graph.nodes) {
         for(auto e2 : node.arcs) {
-            if(!e2.is_shortcut()) continue;
             auto ne = chlrm_graph.Ne(e2); // partners that have a child
 
             for(auto e1 : ne) {
@@ -263,6 +266,7 @@ TEST(CHLRM, test_maintenance_on_paper_example_graph) {
         graph.add_arc(3, invalid_id, 5, 5, b);
         graph.add_arc(4, invalid_id, 0, 6, b);
         graph.add_arc(4, invalid_id, 3, 2, b);
+        graph.add_arc(4, invalid_id, 11, 3, b);
         graph.add_arc(6, invalid_id, 3, 5, a);
         graph.add_arc(6, invalid_id, 5, 7, ab);
         graph.add_arc(7, invalid_id, 8, 2, a);

@@ -218,11 +218,11 @@ public:
         return result;
     }   
 
-    CHLRMArc& Np(CHLRMArc& e1, CHLRMArc& e2) {
+    CHLRMArc Np(CHLRMArc& e1, CHLRMArc& e2) {
         assert(e1.to == e2.from);
 
         for(CHLRMArc& arc : nodes[e1.from].arcs) {
-            if(!arc.is_shortcut()) continue;
+            //if(!arc.is_shortcut()) continue;
             if(arc.to != e2.to) continue;
             if(arc.label != e1.label.unite(e2.label)) continue;
 
@@ -235,11 +235,10 @@ public:
             return arc;
         }
 
-        //assert(false && "No parent arc found for the given child arcs.");
-        return dummy_arc;
+        return CHLRMArc{e1.from, e1.to, e2.to, inf_weight, e1.label.unite(e2.label)};
     }
 
-    bool have_child(CHLRMArc& e1, CHLRMArc& e2) {
+    bool have_child(CHLRMArc e1, CHLRMArc e2) {
         assert(e1.to == e2.from);
 
         for(CHLRMArc& arc : nodes[e1.from].arcs) {
@@ -256,11 +255,14 @@ public:
     std::vector<CHLRMArc> Ne(CHLRMArc& e2) {
         std::vector<CHLRMArc> result;
 
-        for(CHLRMNode& node : nodes) {
-            for(CHLRMArc& e1 : node.arcs) {
-                if(e1.to != e2.from) continue;
-                if(!have_child(e1, e2)) continue;
+        unsigned to_rank = nodes[e2.to].rank;
+        unsigned mid_rank = nodes[e2.from].rank;
+        if(to_rank <= mid_rank) return result;
 
+        for(CHLRMNode& node : nodes) {
+            for(CHLRMArc e1 : node.arcs) {
+                if(e1.to != e2.from) continue;
+                if(nodes[e1.from].rank <= mid_rank) continue;
                 result.push_back(e1);
             }
         }
