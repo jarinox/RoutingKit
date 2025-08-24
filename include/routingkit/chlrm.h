@@ -169,7 +169,7 @@ public:
         nodes[arc.from].arcs.push_back(arc);
     }
 
-    CHLRMArc& find_arc(CHLRMArc& arc) {
+    CHLRMArc& find_arc(const CHLRMArc& arc) {
         for (auto& node : nodes) {
             for (auto& existing_arc : node.arcs) {
                 if (existing_arc == arc) {
@@ -177,7 +177,11 @@ public:
                 }
             }
         }
-        return arc; // Return the original arc if not found
+        // Return a stable dummy arc reference instead of returning a reference
+        // to the caller's parameter (which may be a temporary). Returning the
+        // parameter caused writes to a local object and led to heap
+        // corruption when callers assigned through the returned reference.
+        return dummy_arc;
     }
 
     CHLRMArc& get_arc(CHLRMArcPos arc_pos);
@@ -218,9 +222,9 @@ public:
         return result;
     }   
 
-    CHLRMArc Np(CHLRMArc& e1_, CHLRMArc& e2_) {
-        CHLRMArc& e1 = e1_;
-        CHLRMArc& e2 = e2_;
+    CHLRMArc Np(CHLRMArc e1_, CHLRMArc e2_) {
+        CHLRMArc e1 = e1_;
+        CHLRMArc e2 = e2_;
 
         if(e2.to == e1.from) {
             e1 = e2_;
@@ -265,14 +269,14 @@ public:
 
         for(CHLRMNode& node : nodes) {
             for(CHLRMArc e1 : node.arcs) {
-                if(e1.to == e2.from) {
+                if(e1.to == e2.from && e1.from != e2.to) {
                     if(nodes[e1.from].rank > nodes[e1.to].rank
                     && nodes[e2.to].rank > nodes[e1.to].rank) {
                         result.push_back(e1);
                     }
                 }
-        
-                if(e2.to == e1.from) {
+
+                if(e2.to == e1.from && e2.from != e1.to) {
                     if(nodes[e1.to].rank > nodes[e1.from].rank
                     && nodes[e2.from].rank > nodes[e1.from].rank) {
                         result.push_back(e1);

@@ -516,18 +516,22 @@ CHLRArc search_arc(CHLRGraph &graph, unsigned from, unsigned to, Label restricti
         }
     }*/
 
+    for (const auto &arc : graph.nodes[from].out_arcs) {
+        if (arc.other_node == to && arc.label.is_subset_of(restriction)) {
+            return arc;
+        }
+    }
+
+    for (const auto &arc : graph.nodes[to].in_arcs) {
+        if (arc.other_node == from && arc.label.is_subset_of(restriction)) {
+            return reversed(to, arc);
+        }
+    }
+
     if(!backward) {
-        for (const auto &arc : graph.nodes[from].out_arcs) {
-            if (arc.other_node == to && arc.label.is_subset_of(restriction)) {
-                return arc;
-            }
-        }
+        
     } else {
-        for (const auto &arc : graph.nodes[to].in_arcs) {
-            if (arc.other_node == from && arc.label.is_subset_of(restriction)) {
-                return reversed(to, arc);
-            }
-        }
+        
     }
 
     throw std::runtime_error("Arc not found from " + std::to_string(from) + " to " + std::to_string(to));

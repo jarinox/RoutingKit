@@ -138,7 +138,11 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
                     queue.push(e_, false, *this);
                 }
 
-                find_arc(e_).weight = k;
+                auto& e_alt = find_arc(e_);
+                if(e_alt.from == invalid_id){
+                    e_alt = e_;
+                }
+                e_.weight = k;
                 arc.dominant_shortcut_set.erase(std::remove(arc.dominant_shortcut_set.begin(), arc.dominant_shortcut_set.end(), e_), arc.dominant_shortcut_set.end());
                 add_arc(e_, true);
             }
@@ -225,7 +229,11 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
                 unsigned k = calculate_weight(e__);
 
                 if (e__.weight < k && !queue.contains(e__, true)) {
-                    find_arc(e__).weight = k;
+                    auto& e_alt = find_arc(e__);
+                    if(e_alt.from == invalid_id){
+                        e_alt = e__;
+                    }
+                    e_alt.weight = k;
                     queue.push(e__, true, *this);
                     keep_shortcut_dominance(e__, queue, true);
                 }
@@ -233,7 +241,11 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
 
             if (!increment) {
                 if (e__.weight > e.weight + e_.weight) {
-                    find_arc(e__).weight = e.weight + e_.weight;
+                    auto& e_alt = find_arc(e__);
+                    if(e_alt.from == invalid_id){
+                        e_alt = e__;
+                    }
+                    e_alt.weight = e.weight + e_.weight;
                     if (!queue.contains(e__, false)) {
                         queue.push(e__, false, *this);
                         keep_shortcut_dominance(e__, queue, false);
