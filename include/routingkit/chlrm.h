@@ -218,7 +218,15 @@ public:
         return result;
     }   
 
-    CHLRMArc Np(CHLRMArc& e1, CHLRMArc& e2) {
+    CHLRMArc Np(CHLRMArc& e1_, CHLRMArc& e2_) {
+        CHLRMArc& e1 = e1_;
+        CHLRMArc& e2 = e2_;
+
+        if(e2.to == e1.from) {
+            e1 = e2_;
+            e2 = e1_;
+        }
+
         assert(e1.to == e2.from);
 
         for(CHLRMArc& arc : nodes[e1.from].arcs) {
@@ -255,15 +263,21 @@ public:
     std::vector<CHLRMArc> Ne(CHLRMArc& e2) {
         std::vector<CHLRMArc> result;
 
-        unsigned to_rank = nodes[e2.to].rank;
-        unsigned mid_rank = nodes[e2.from].rank;
-        if(to_rank <= mid_rank) return result;
-
         for(CHLRMNode& node : nodes) {
             for(CHLRMArc e1 : node.arcs) {
-                if(e1.to != e2.from) continue;
-                if(nodes[e1.from].rank <= mid_rank) continue;
-                result.push_back(e1);
+                if(e1.to == e2.from) {
+                    if(nodes[e1.from].rank > nodes[e1.to].rank
+                    && nodes[e2.to].rank > nodes[e1.to].rank) {
+                        result.push_back(e1);
+                    }
+                }
+        
+                if(e2.to == e1.from) {
+                    if(nodes[e1.to].rank > nodes[e1.from].rank
+                    && nodes[e2.from].rank > nodes[e1.from].rank) {
+                        result.push_back(e1);
+                    }
+                }
             }
         }
 
