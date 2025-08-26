@@ -47,7 +47,7 @@ TEST(CHLRM, test_min_rank_queue) {
     ASSERT_TRUE(queue.empty());
 }
 
-TEST(CHLRM, test_convert_and_build_neighbour_index) {
+TEST(CHLRM, test_convert) {
     return;
     std::vector<std::string> osm_files = {
         "ma_min_messplatz.osm.pbf",
@@ -85,35 +85,6 @@ TEST(CHLRM, test_convert_and_build_neighbour_index) {
         }
 
         CHLRMGraph chlrm_graph(combined_graph);
-
-        for(auto n : chlrm_graph.N_minus) {
-            auto& child = chlrm_graph.nodes[n.first.node_index].arcs[n.first.arc_index];
-            auto& u = chlrm_graph.nodes[child.from];
-            auto& v = chlrm_graph.nodes[child.to];
-            
-            for(auto parent_pair : n.second) {
-                auto& parent1 = chlrm_graph.nodes[parent_pair.first.node_index].arcs[parent_pair.first.arc_index];
-                auto& parent2 = chlrm_graph.nodes[parent_pair.second.node_index].arcs[parent_pair.second.arc_index];
-
-                EXPECT_EQ(parent1.to, parent2.to) << "Parent arcs do not have the same target node: " 
-                    << parent1.from << " -> " << parent1.to << " with mid node " << parent1.mid_node
-                    << " and " << parent2.from << " -> " << parent2.to << " with mid node " << parent2.mid_node;
-                
-                EXPECT_EQ(child.label, parent1.label.unite(parent2.label)) << "Child arc label does not match parent arcs' united label: "
-                    << child.label.get_label() << " != " << parent1.label.unite(parent2.label).get_label();
-                
-                auto& q = chlrm_graph.nodes[parent1.to];
-
-                ASSERT_TRUE(child.is_shortcut()) << "Child arc is not a shortcut: " << child.from << " -> " << child.to << " with mid node " << child.mid_node;
-                ASSERT_TRUE(parent1.is_shortcut() && parent2.is_shortcut()) << "Parent arcs are not shortcuts: " << parent1.from << " -> " << parent1.to << " with mid node " << parent1.mid_node
-                                                                            << " and " << parent2.from << " -> " << parent2.to << " with mid node " << parent2.mid_node;
-                ASSERT_LE(q.rank, u.rank) << "Child arc's target node rank is greater than parent arc's source node rank: " 
-                    << q.rank << " > " << u.rank;
-                ASSERT_LE(q.rank, v.rank) << "Child arc's target node rank is greater than parent arc's target node rank: "
-                    << q.rank << " > " << v.rank;
-            }
-        }
-
         auto back_to_chlr = chlrm_graph.to_chlr();
 
         for(unsigned i = 0; i < back_to_chlr.nodes.size(); ++i) {

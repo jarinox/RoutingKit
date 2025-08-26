@@ -142,17 +142,6 @@ private:
 public:
     std::vector<CHLRMNode> nodes;
 
-    // N+ maps the parent shortcuts e1 and e2 to their child shortcut e3
-    std::unordered_map<std::pair<CHLRMArcPos, CHLRMArcPos>, CHLRMArcPos> N_plus;
-
-    // N- maps the child shortcut e3 to its parent shortcuts e1 and e2
-    std::unordered_map<CHLRMArcPos, std::vector<std::pair<CHLRMArcPos, CHLRMArcPos>>> N_minus;
-
-    // N= maps a parent shortcut e1 to its partner shortcut e2
-    std::unordered_map<CHLRMArcPos, std::vector<CHLRMArcPos>> N_equals;
-
-    std::map<CHLRMArcPos, unsigned> weight;
-
     CHLRMGraph(CHLRGraph& graph);
 
     CHLRGraph to_chlr();
@@ -187,7 +176,7 @@ public:
     CHLRMArc& get_arc(CHLRMArcPos arc_pos);
     void delete_arc(CHLRMArcPos arc_pos);
 
-    unsigned calculate_weight(CHLRMArc& arc);
+    unsigned calculate_weight(CHLRMArc arc);
     void keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, bool increment);
     void maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n);
     void maintenance_optimized(CHLRMArcPos original_arc_pos, unsigned new_weight, Label new_label);
@@ -201,7 +190,7 @@ public:
 
     unsigned original_arc_weight(CHLRMArc& arc);
 
-    std::vector<std::pair<CHLRMArc, CHLRMArc>> Nm(CHLRMArc& arc) {
+    std::vector<std::pair<CHLRMArc, CHLRMArc>> Nm(CHLRMArc arc) {
         std::vector<std::pair<CHLRMArc, CHLRMArc>> result;
         //assert(arc.is_shortcut());
 
@@ -264,7 +253,7 @@ public:
         return false;
     }
 
-    std::vector<CHLRMArc> Ne(CHLRMArc& e2) {
+    std::vector<CHLRMArc> Ne(CHLRMArc e2) {
         std::vector<CHLRMArc> result;
 
         for(CHLRMNode& node : nodes) {

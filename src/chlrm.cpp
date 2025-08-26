@@ -14,10 +14,6 @@ CHLRMArcPos CHLRMArc::get_pos(CHLRMGraph& graph) {
 
 
 CHLRMGraph::CHLRMGraph(CHLRGraph& graph) {
-    N_plus = std::unordered_map<std::pair<CHLRMArcPos, CHLRMArcPos>, CHLRMArcPos>();
-    N_minus = std::unordered_map<CHLRMArcPos, std::vector<std::pair<CHLRMArcPos, CHLRMArcPos>>>();
-    N_equals = std::unordered_map<CHLRMArcPos, std::vector<CHLRMArcPos>>();
-
     nodes.resize(graph.nodes.size());
 
     for (unsigned i = 0; i < graph.nodes.size(); ++i) {
@@ -30,48 +26,12 @@ CHLRMGraph::CHLRMGraph(CHLRGraph& graph) {
             const auto& arc = graph.nodes[i].out_arcs[j];
             auto new_arc = CHLRMArc{i, arc.mid_node, arc.other_node, arc.weight, arc.label};
             nodes[i].arcs.emplace_back(new_arc);
-            weight[CHLRMArcPos{j, i}] = new_arc.weight;
-        }
-    }
-
-    build_neighbour_index();
-}
-
-// Builds index structures for N+, N= and N-
-void CHLRMGraph::build_neighbour_index() {
-    for (unsigned i = 0; i < nodes.size(); ++i) {
-        auto& node = nodes[i];
-        for (unsigned j = 0; j < node.arcs.size(); ++j) {
-            auto& arc = node.arcs[j];
-            if(!arc.is_shortcut()) continue;
-
-            for (unsigned k = 0; k < node.arcs.size(); ++k) {
-                auto& e1 = node.arcs[k];
-                if (!arc.is_shortcut() || e1.to == arc.to) continue;
-                if (nodes[e1.to].rank > node.rank) continue;
-                if (nodes[e1.to].rank > nodes[arc.to].rank) continue;
-
-                for (unsigned l = 0; l < nodes[arc.to].arcs.size(); ++l) {
-                    auto& e2 = nodes[arc.to].arcs[l];
-                    if (!e2.is_shortcut() || e2.to != arc.to) continue;
-                    if (e1.label.unite(e2.label) != arc.label) continue;
-
-                    CHLRMArcPos e1_pos{i, j};
-                    CHLRMArcPos e2_pos{i, k};
-                    CHLRMArcPos e3_pos{arc.to, l};
-
-                    N_plus[{e1_pos, e2_pos}] = e3_pos;
-                    N_minus[e3_pos].emplace_back(e1_pos, e2_pos);
-                    N_equals[e2_pos].emplace_back(e3_pos);
-                    N_equals[e3_pos].emplace_back(e2_pos);
-                }
-            }
         }
     }
 }
 
 // See Algorithm 1: CalWeight in paper
-unsigned CHLRMGraph::calculate_weight(CHLRMArc& arc) {
+unsigned CHLRMGraph::calculate_weight(CHLRMArc arc) {
     unsigned k = inf_weight;
     arc.cnt = 0;
 
