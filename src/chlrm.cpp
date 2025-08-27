@@ -82,8 +82,8 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
             arc.weight = inf_weight;
             arc.cnt = 0;
 
-            if(std::find(e_.dominant_shortcut_set.begin(), e_.dominant_shortcut_set.end(), arc) == e_.dominant_shortcut_set.end()) {
-                e_.dominant_shortcut_set.push_back(arc);
+            if(has_dominant_shortcut(e_, arc)) {
+                add_dominant_shortcut(e_, arc);
             }
 
             //return; // TODO: can we return here? the paper uses "if e with ... exists then do with it ..." 
@@ -91,7 +91,7 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
     }
     
     if(increment) {
-        for (auto e_ : arc.dominant_shortcut_set) {
+        for (auto e_ : get_dominant_shortcuts(arc)) {
             unsigned k = calculate_weight(e_);
             if (k < arc.weight) {
                 if(!queue.contains(e_, false)) {
@@ -103,13 +103,13 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
                     e_alt = e_;
                 }
                 e_.weight = k;
-                arc.dominant_shortcut_set.erase(std::remove(arc.dominant_shortcut_set.begin(), arc.dominant_shortcut_set.end(), e_), arc.dominant_shortcut_set.end());
+                remove_dominant_shortcut(e_, arc);
                 add_arc(e_, true);
             }
         }
     } else {
-
-        for (auto e_ : nodes[arc.from].arcs) {
+        unsigned i = 0;
+        for (CHLRMArc& e_ : nodes[arc.from].arcs) {
             if (e_.to != arc.to || !arc.label.is_subset_of(e_.label)) {
                 continue;
             }
@@ -121,8 +121,9 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
 
                 e_.weight = inf_weight;
                 e_.cnt = 0;
-                arc.dominant_shortcut_set.push_back(e_);
+                add_dominant_shortcut(arc, e_);
             }
+            i++;
         }
     }
 }
@@ -143,18 +144,24 @@ unsigned CHLRMArc::rank(CHLRMGraph& graph) {
 }
 
 void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
-    auto& e_o = get_arc(e_o_pos);
-    if (e_o.label == l_n && e_o.weight == w_n) return;
-    unsigned w_o = e_o.weight;
-    Label l_o = e_o.label;
+    auto& e_o_ref = get_arc(e_o_pos);
+    if (e_o_ref.label == l_n && e_o_ref.weight == w_n) return;
+    unsigned w_o = e_o_ref.weight;
+    Label l_o = e_o_ref.label;
     MinRankQueue queue(nodes.size()*100+64);
 
     if (l_n != l_o) {
-        e_o.weight = inf_weight;
-        auto e_n = CHLRMArc{e_o.from, e_o.mid_node, e_o.to, w_n, l_n};
-        nodes[e_n.from].arcs.push_back(e_n);
+        unsigned from = e_o_ref.from;
+        unsigned mid_node = e_o_ref.mid_node;
+        unsigned to = e_o_ref.to;
+
+        e_o_ref.weight = inf_weight;
         
-        e_o = get_arc(e_o_pos);
+        auto e_n_tmp = CHLRMArc{from, mid_node, to, w_n, l_n};
+        nodes[from].arcs.push_back(e_n_tmp);
+        auto& e_n = nodes[from].arcs.back();
+
+        auto& e_o = get_arc(e_o_pos);
         unsigned k = calculate_weight(e_o);
         e_o.weight = k;
 
@@ -169,9 +176,9 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
             keep_shortcut_dominance(e_n, queue, false);
         }
     } else {
+        auto& e_o = get_arc(e_o_pos);
         e_o.weight = w_n;
         unsigned k = calculate_weight(e_o);
-        e_o = get_arc(e_o_pos);
         e_o.weight = k;
 
         queue.push(e_o, e_o.weight > w_o, *this);
@@ -180,7 +187,7 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
 
     while (!queue.empty()) {
         auto [increment, e] = queue.pop();
-        std::cout << "Processing arc: " << e.from << " -> " << e.to << " w: " << e.weight << " inc: " << increment << std::endl;
+        //std::cout << "Processing arc: " << e.from << " -> " << e.to << " w: " << e.weight << " inc: " << increment << std::endl;
         auto partners = Ne(e);
 
         for (auto e_ : partners) {

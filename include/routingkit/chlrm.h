@@ -64,8 +64,6 @@ public:
     unsigned weight;
     Label label;
 
-    std::vector<CHLRMArc> dominant_shortcut_set;
-
     CHLRMArc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) :
         from(from), mid_node(mid_node), to(to), cnt(0), weight(weight), label(label) {};
 
@@ -106,7 +104,7 @@ public:
     void push(CHLRMArc arc, bool increment, CHLRMGraph& graph);
     std::pair<bool, CHLRMArc> pop();
 
-    bool contains(const CHLRMArc arc, bool increment) const {
+    bool contains(const CHLRMArc& arc, bool increment) const {
         return is_in_queue.find({arc, increment}) != is_in_queue.end();
     }
 };
@@ -141,6 +139,7 @@ private:
     CHLRMArc dummy_arc{invalid_id, invalid_id, invalid_id, inf_weight, Label()};
 public:
     std::vector<CHLRMNode> nodes;
+    std::map<CHLRMArc, std::vector<CHLRMArc>> dominant_shortcut_map;
 
     CHLRMGraph(CHLRGraph& graph);
 
@@ -176,6 +175,34 @@ public:
     CHLRMArc& get_arc(CHLRMArcPos arc_pos);
     void delete_arc(CHLRMArcPos arc_pos);
 
+    void add_dominant_shortcut(CHLRMArc arc, CHLRMArc dominated_arc) {
+        dominant_shortcut_map[arc].push_back(dominated_arc);
+    }
+
+    bool has_dominant_shortcut(CHLRMArc arc, CHLRMArc dominated_arc) {
+        auto it = dominant_shortcut_map.find(arc);
+        if (it != dominant_shortcut_map.end()) {
+            auto& vec = it->second;
+            return std::find(vec.begin(), vec.end(), dominated_arc) != vec.end();
+        }
+        return false;
+    }
+
+    std::vector<CHLRMArc>& get_dominant_shortcuts(CHLRMArc arc) {
+        return dominant_shortcut_map[arc];
+    }
+
+    void remove_dominant_shortcut(CHLRMArc arc, CHLRMArc dominated_arc) {
+        auto it = dominant_shortcut_map.find(arc);
+        if (it != dominant_shortcut_map.end()) {
+            auto& vec = it->second;
+            vec.erase(std::remove(vec.begin(), vec.end(), dominated_arc), vec.end());
+            if (vec.empty()) {
+                dominant_shortcut_map.erase(it);
+            }
+        }
+    }
+
     unsigned calculate_weight(CHLRMArc arc);
     void keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, bool increment);
     void maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n);
@@ -190,17 +217,17 @@ public:
 
     unsigned original_arc_weight(CHLRMArc& arc);
 
-    std::vector<std::pair<CHLRMArc, CHLRMArc>> Nm(CHLRMArc arc) {
+    std::vector<std::pair<CHLRMArc, CHLRMArc>> Nm(const CHLRMArc& arc) {
         std::vector<std::pair<CHLRMArc, CHLRMArc>> result;
         //assert(arc.is_shortcut());
 
-        for(CHLRMArc& e1 : nodes[arc.from].arcs) {
+        for(const CHLRMArc& e1 : nodes[arc.from].arcs) {
             if(e1.to == arc.to) continue;
             unsigned rank_mid = nodes[e1.to].rank;
             if(rank_mid >= nodes[arc.from].rank) continue;
             if(rank_mid >= nodes[arc.to].rank) continue;
 
-            for(CHLRMArc& e2 : nodes[e1.to].arcs) {
+            for(const CHLRMArc& e2 : nodes[e1.to].arcs) {
                 if(e2.to != arc.to) continue;
                 if(e1.label.unite(e2.label) != arc.label) continue;
                 
@@ -211,7 +238,7 @@ public:
         return result;
     }   
 
-    CHLRMArc Np(CHLRMArc e1_, CHLRMArc e2_) {
+    CHLRMArc Np(const CHLRMArc& e1_, const CHLRMArc& e2_) {
         CHLRMArc e1 = e1_;
         CHLRMArc e2 = e2_;
 
@@ -222,7 +249,7 @@ public:
 
         assert(e1.to == e2.from);
 
-        for(CHLRMArc& arc : nodes[e1.from].arcs) {
+        for(const CHLRMArc& arc : nodes[e1.from].arcs) {
             //if(!arc.is_shortcut()) continue;
             if(arc.to != e2.to) continue;
             if(arc.label != e1.label.unite(e2.label)) continue;
@@ -253,11 +280,11 @@ public:
         return false;
     }
 
-    std::vector<CHLRMArc> Ne(CHLRMArc e2) {
+    std::vector<CHLRMArc> Ne(const CHLRMArc& e2) {
         std::vector<CHLRMArc> result;
 
-        for(CHLRMNode& node : nodes) {
-            for(CHLRMArc e1 : node.arcs) {
+        for(const CHLRMNode& node : nodes) {
+            for(const CHLRMArc& e1 : node.arcs) {
                 if(e1.to == e2.from && e1.from != e2.to) {
                     if(nodes[e1.from].rank > nodes[e1.to].rank
                     && nodes[e2.to].rank > nodes[e1.to].rank) {

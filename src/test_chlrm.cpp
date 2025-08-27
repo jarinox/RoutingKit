@@ -272,7 +272,8 @@ TEST(CHLRM, test_maintenance_on_paper_example_graph) {
 }
 
 TEST(CHLRM, test_graph_maintenance_synthetic) {
-    for(unsigned nc = 12; nc < 30; ++nc) {
+    for(unsigned nc = 5; nc < 30; ++nc) {
+        std::cout << "Testing with " << nc << " nodes." << std::endl;
         CHLRGraph graph;
         unsigned node_cnt = nc;
         graph.nodes.resize(node_cnt);
