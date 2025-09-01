@@ -310,6 +310,7 @@ TEST(CHLRM, test_graph_maintenance_synthetic) {
         auto arc1_pos = arc1.get_pos(chlrmg);
         auto arc2_pos = arc2.get_pos(chlrmg);
 
+        std::cout << "Maintain weight" << std::endl;
         chlrmg.maintenance(arc1_pos, 100, Label());
         chlrmg.maintenance(arc2_pos, 100, Label());
 
@@ -321,6 +322,7 @@ TEST(CHLRM, test_graph_maintenance_synthetic) {
         auto path2 = q2.get_arc_path();
         ASSERT_EQ(path2.size(), node_cnt - 2) << "Wrong path length after maintenance. Expected 3 arcs in the path, got " << path2.size();
 
+        std::cout << "Maintain label" << std::endl;
         chlrmg.maintenance(arc1_pos, 1, Label::fully_restricted());
         chlrmg.maintenance(arc2_pos, 1, Label::fully_restricted());
 
@@ -332,6 +334,7 @@ TEST(CHLRM, test_graph_maintenance_synthetic) {
         auto path3 = q3.get_arc_path();
         ASSERT_EQ(path3.size(), node_cnt - 2) << "Wrong path length after maintenance. Expected 3 arcs in the path, got " << path3.size();
 
+        std::cout << "Restore original" << std::endl;
         chlrmg.maintenance(arc1_pos, 1, Label());
         chlrmg.maintenance(arc2_pos, 1, Label());
 

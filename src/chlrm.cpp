@@ -76,6 +76,7 @@ unsigned CHLRMGraph::original_arc_weight(CHLRMArc& arc) {
 
 
 void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, bool increment) {
+    bool exists = false;
     for(auto& e_ : nodes[arc.from].arcs) {
         if(e_ == arc) continue;
         if(e_.to == arc.to && e_.label.is_subset_of(arc.label) && e_.weight <= arc.weight){
@@ -86,9 +87,13 @@ void CHLRMGraph::keep_shortcut_dominance(CHLRMArc& arc, MinRankQueue& queue, boo
                 add_dominant_shortcut(e_, arc);
             }
 
+            exists = true;
+
             //return; // TODO: can we return here? the paper uses "if e with ... exists then do with it ..." 
         }
     }
+
+    if (exists) return;
     
     if(increment) {
         for (auto e_ : get_dominant_shortcuts(arc)) {
@@ -148,6 +153,8 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
     if (e_o_ref.label == l_n && e_o_ref.weight == w_n) return;
     unsigned w_o = e_o_ref.weight;
     Label l_o = e_o_ref.label;
+
+    dominant_shortcut_map.clear();
     MinRankQueue queue(nodes.size()*100+64);
 
     if (l_n != l_o) {
@@ -187,7 +194,7 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
 
     while (!queue.empty()) {
         auto [increment, e] = queue.pop();
-        //std::cout << "Processing arc: " << e.from << " -> " << e.to << " w: " << e.weight << " inc: " << increment << std::endl;
+        std::cout << "Processing arc: " << e.from << " -> " << e.to << " w: " << e.weight << " inc: " << increment << std::endl;
         auto partners = Ne(e);
 
         for (auto e_ : partners) {

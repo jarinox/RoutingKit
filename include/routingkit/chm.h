@@ -13,6 +13,7 @@
 
 
 class CHMGraph;
+class MinRankQueue;
 
 class CHMArcPos {
 public:
@@ -32,11 +33,25 @@ public:
     Label label;
 
     CHMArc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label)
-        : from(from), mid_node(mid_node), to(to), weight(weight), label(label), arc_index(invalid_id) {}
+        : from(from), mid_node(mid_node), to(to), arc_index(invalid_id), weight(weight), label(label) {}
 
     bool is_shortcut() const { return mid_node != invalid_id; }
     CHMArcPos get_pos() const { return CHMArcPos{from, arc_index}; }
     CHMArc& ref(CHMGraph& graph);
+    unsigned rank(CHMGraph& graph);
+
+    bool operator<(const CHMArc& other) const {
+        return from < other.from ||
+               (from == other.from && (mid_node < other.mid_node ||
+               (mid_node == other.mid_node && (to < other.to ||
+               (to == other.to && (weight < other.weight || 
+               (weight == other.weight && label < other.label)))))));
+    }
+
+    bool operator==(const CHMArc& other) const {
+        return from == other.from && mid_node == other.mid_node && to == other.to &&
+               weight == other.weight && label == other.label;
+    }
 };
 
 class CHMNode {
@@ -53,25 +68,37 @@ public:
 class CHMGraph {
 public:
     std::vector<CHMNode> nodes;
-    std::vector<CHMArc> unbound_arcs;
+    std::map<CHMArc, std::vector<CHMArc>> dominant_shortcuts;
 
-    void add_arc(CHMArc arc) {
+    void add_arc(CHMArc arc, bool avoid_duplicated = false) {
+        if(avoid_duplicated) {
+            for (const auto& existing_arc : nodes[arc.from].arcs) {
+                if (existing_arc == arc) {
+                    return; // Arc already exists, avoid duplication
+                }
+            }
+        }
+
         nodes[arc.from].arcs.push_back(arc);
         nodes[arc.from].arcs.back().arc_index = nodes[arc.from].arcs.size() - 1;
     }
 
     CHMArc& get(CHMArcPos pos) {
-        if (pos.node_index == invalid_id)
-            return unbound_arcs[pos.arc_index];
         return nodes[pos.node_index].arcs[pos.arc_index];
     }
 
     unsigned calculate_weight(CHMArc arc);
+    void keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue& queue);
+    void maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n);
 
     std::vector<std::pair<CHMArc, CHMArc>> Nm(CHMArc child);
     std::vector<CHMArc> Ne(CHMArc arc);
     CHMArc Np(CHMArc e1, CHMArc e2);
 
+    void add_dominant_shortcut(CHMArc arc, CHMArc shortcut);
+    bool has_dominant_shortcut(CHMArc arc, CHMArc shortcut);
+    std::vector<CHMArc> get_dominant_shortcuts(CHMArc arc);
+    void remove_dominant_shortcut(CHMArc arc, CHMArc shortcut);
 };
 
 inline CHMArc& CHMArc::ref(CHMGraph& graph) {
@@ -81,5 +108,26 @@ inline CHMArc& CHMArc::ref(CHMGraph& graph) {
 
     return graph.get(get_pos());
 }
+
+class MinRankQueue {
+    MinIDQueue queue;
+    std::vector<std::queue<std::pair<bool, CHMArc>>> unsigned_to_arc;
+    std::set<std::pair<CHMArc, bool>> is_in_queue;
+public:
+    MinRankQueue(unsigned size) : queue(size), unsigned_to_arc(size) {}
+
+    bool empty() const {
+        return queue.empty();
+    }
+
+    void push(CHMArc arc, bool increment, CHMGraph& graph);
+    std::pair<bool, CHMArc> pop();
+
+    bool contains(const CHMArc& arc, bool increment) const {
+        return is_in_queue.find({arc, increment}) != is_in_queue.end();
+    }
+};
+
+
 
 #endif // ROUTING_KIT_CHM_H
