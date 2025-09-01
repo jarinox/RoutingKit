@@ -99,6 +99,7 @@ public:
     bool has_dominant_shortcut(CHMArc arc, CHMArc shortcut);
     std::vector<CHMArc> get_dominant_shortcuts(CHMArc arc);
     void remove_dominant_shortcut(CHMArc arc, CHMArc shortcut);
+    unsigned w(unsigned from, unsigned to, Label label);
 };
 
 inline CHMArc& CHMArc::ref(CHMGraph& graph) {

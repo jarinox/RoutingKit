@@ -64,9 +64,8 @@ unsigned CHLRMGraph::original_arc_weight(CHLRMArc& arc) {
     unsigned k = inf_weight;
 
     for (auto& e : nodes[arc.from].arcs) { 
-        if(e.is_shortcut()) continue;
         if(e.to != arc.to) continue;
-        if(e.weight > k || !e.label.is_subset_of(arc.label)) continue;
+        if(e.weight > k || e.label != arc.label) continue;
 
         k = e.weight;
     }
