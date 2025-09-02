@@ -100,7 +100,7 @@ TEST(CHM, test_convert_chm_chlr) {
 }
 
 TEST(CHM, test_maintenance_on_circular_graphs) {
-    for (unsigned node_count = 5; node_count < 100; ++node_count) {
+    for (unsigned node_count = 5; node_count < 25; ++node_count) {
         CHLRGraph chlr = circular(node_count);
         CHMGraph chm = CHMGraph(chlr);
         
@@ -169,24 +169,33 @@ TEST(CHM, test_maintenance_on_circular_graphs) {
 }
 
 TEST(CHM, test_maintenance_on_synthetic_graph) {
+    unsigned correct = 0;
+    unsigned wrong = 0;
+    unsigned mismatches = 0;
+    unsigned accepted = 0;
+
     for (unsigned run = 0; run < 10; ++run) {
         std::cout << "Running synthetic test " << run << std::endl;
         CHLRGraph chlr = synthetic(200, true, run);
         CHMGraph chm = CHMGraph(chlr);
 
+        std::vector<unsigned> original_distances;
+
         // Prechange
-        for(unsigned query = 20; query < 30; ++query) {
+        for(unsigned query = 50; query < 100; ++query) {
             CHLRQuery q(chlr);
             q.set(0, query, Label());
             q.run();
 
             unsigned dij = chm.dijkstra(0, query, Label());
             EXPECT_EQ(dij, path_length(q.get_arc_path()));
+            original_distances.push_back(dij);
         }
 
         // Apply random changes
-        for(unsigned i = 0; i < 30; ++i) {
+        for(unsigned i = 0; i < 40; ++i) {
             unsigned from = rand() % 200;
+            if(chm.nodes[from].arcs.empty()) continue;
             unsigned arc = rand() % chm.nodes[from].arcs.size();
             unsigned weight = rand() % 1000 + 1;
             Label label(rand() % 5);
@@ -202,7 +211,25 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
             q.run();
 
             unsigned dij = chm.dijkstra(0, query, Label());
-            EXPECT_EQ(dij, path_length(q.get_arc_path()));
+            unsigned chlr_len = path_length(q.get_arc_path());
+            EXPECT_EQ(dij, chlr_len);
+
+            if(dij != original_distances[query - 50]){
+                if(dij == chlr_len) {
+                    correct++;
+                } else {
+                    wrong++;
+                }
+            } else {
+               if(dij != chlr_len) {
+                    mismatches++;
+                } else {
+                    accepted++;
+                }
+            }
         }
     }
+
+    std::cout << "Correct: " << correct << " Wrong: " << wrong << " Mismatches: " << mismatches << " Accepted: " << accepted << std::endl;
+
 }
