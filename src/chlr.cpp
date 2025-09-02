@@ -469,6 +469,7 @@ void CHLRQuery::settle(
     for (unsigned j = 0; j < graph.nodes[current_node].out_arcs.size(); ++j) {
         const auto &arc = graph.nodes[current_node].out_arcs[j];
         if (!arc.label.is_allowed(restriction)) continue;
+        if (arc.weight >= inf_weight) continue;
 
         unsigned next_node = arc.other_node;
         unsigned new_distance = current_distance + arc.weight;
@@ -516,22 +517,18 @@ CHLRArc search_arc(CHLRGraph &graph, unsigned from, unsigned to, Label restricti
         }
     }*/
 
-    for (const auto &arc : graph.nodes[from].out_arcs) {
-        if (arc.other_node == to && arc.label.is_subset_of(restriction)) {
-            return arc;
-        }
-    }
-
-    for (const auto &arc : graph.nodes[to].in_arcs) {
-        if (arc.other_node == from && arc.label.is_subset_of(restriction)) {
-            return reversed(to, arc);
-        }
-    }
-
-    if(!backward) {
-        
-    } else {
-        
+    if(backward) { // backward
+        for (const auto &arc : graph.nodes[to].in_arcs) {
+            if (arc.other_node == from && arc.label.is_subset_of(restriction)) {
+                return reversed(to, arc);
+            }
+        }    
+    } else { // forward
+        for (const auto &arc : graph.nodes[from].out_arcs) {
+            if (arc.other_node == to && arc.label.is_subset_of(restriction)) {
+                return arc;
+            }
+        } 
     }
 
     throw std::runtime_error("Arc not found from " + std::to_string(from) + " to " + std::to_string(to));
