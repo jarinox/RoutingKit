@@ -36,6 +36,45 @@ CHLRGraph CHMGraph::to_chlr() {
     return chlr_graph;
 }
 
+unsigned CHMGraph::dijkstra(unsigned from, unsigned to, Label profile) {
+    std::vector<unsigned> first_out;
+    std::vector<unsigned> head;
+    std::vector<unsigned> tail;
+    std::vector<Label> labels;
+    std::vector<unsigned> weights;
+
+    first_out.resize(nodes.size() + 1);
+    first_out[0] = 0;
+    unsigned arc_count = 0;
+    for (unsigned i = 0; i < nodes.size(); ++i) {
+        for (const auto& arc : nodes[i].arcs) {
+            if(arc.is_shortcut()) continue;
+            head.push_back(arc.to);
+            tail.push_back(arc.from);
+            labels.push_back(arc.label);
+            assert(arc.weight > 0);
+            weights.push_back(arc.weight);
+            arc_count++;
+        }
+        first_out[i + 1] = arc_count;
+    }
+
+    Dijkstra dij = Dijkstra(first_out, tail, head);
+
+    dij.add_source(from).set_labels(labels).set_profile(profile);
+
+    while(!dij.is_finished()){
+        auto settle_result = dij.settle([&](unsigned arc, unsigned distance){
+            return weights[arc];
+        });
+        if(settle_result.node == to){
+            break;
+        }
+    }
+
+    return dij.get_distance_to(to);
+}
+
 unsigned CHMGraph::calculate_weight(CHMArc arc) {
     unsigned k = inf_weight;
     if(!arc.is_shortcut() && arc.weight < inf_weight) {
@@ -113,7 +152,7 @@ void CHMGraph::maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n) {
 
     if (l_n != l_o) {
         e_o.weight = inf_weight;
-        CHMArc e_n = CHMArc{e_o.from, e_o.mid_node, w(e_o.from, e_o.to, l_n), w_n, l_n};
+        CHMArc e_n = CHMArc{e_o.from, e_o.mid_node, e_o.to, w(e_o.from, e_o.to, l_n), l_n};
         // add_arc(e_n, true);
         
         e_o = get(e_o_pos);
@@ -137,7 +176,7 @@ void CHMGraph::maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n) {
 
     while(!queue.empty()) {
         auto [increment, e] = queue.pop();
-        std::cout << "Processing arc: " << e.from << " -> " << e.to << " w: " << e.weight << " inc: " << increment << std::endl;
+        //std::cout << "Processing arc: " << e.from << " -> " << e.to << " w: " << e.weight << " inc: " << increment << std::endl;
         auto partners = Ne(e);
 
         for (auto e_ : partners) {
@@ -228,7 +267,7 @@ std::vector<CHMArc> CHMGraph::Ne(CHMArc arc) {
 }
 
 CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2) {
-    if (e1.to == e2.from) {
+    if (e1.to != e2.from) {
         std::swap(e1, e2);
     }
 

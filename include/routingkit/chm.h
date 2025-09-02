@@ -3,6 +3,7 @@
 
 #include <routingkit/chlr.h>
 #include <routingkit/label.h>
+#include <routingkit/dijkstra.h>
 
 #include <vector>
 #include <unordered_map>
@@ -73,6 +74,7 @@ public:
     CHMGraph() = default;
     CHMGraph(CHLRGraph& graph);
     CHLRGraph to_chlr();
+    unsigned dijkstra(unsigned from, unsigned to, Label profile);
 
     void add_arc(CHMArc arc, bool avoid_duplicated = false);
 
