@@ -70,18 +70,11 @@ public:
     std::vector<CHMNode> nodes;
     std::map<CHMArc, std::vector<CHMArc>> dominant_shortcuts;
 
-    void add_arc(CHMArc arc, bool avoid_duplicated = false) {
-        if(avoid_duplicated) {
-            for (const auto& existing_arc : nodes[arc.from].arcs) {
-                if (existing_arc == arc) {
-                    return; // Arc already exists, avoid duplication
-                }
-            }
-        }
+    CHMGraph() = default;
+    CHMGraph(CHLRGraph& graph);
+    CHLRGraph to_chlr();
 
-        nodes[arc.from].arcs.push_back(arc);
-        nodes[arc.from].arcs.back().arc_index = nodes[arc.from].arcs.size() - 1;
-    }
+    void add_arc(CHMArc arc, bool avoid_duplicated = false);
 
     CHMArc& get(CHMArcPos pos) {
         return nodes[pos.node_index].arcs[pos.arc_index];

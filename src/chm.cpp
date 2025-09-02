@@ -1,5 +1,41 @@
 #include <routingkit/chm.h>
 
+
+CHMGraph::CHMGraph(CHLRGraph& graph) {
+    nodes.resize(graph.nodes.size());
+
+    for (unsigned i = 0; i < graph.nodes.size(); ++i) {
+        nodes[i].node_index = i;
+        nodes[i].rank = graph.nodes[i].rank;
+        nodes[i].lat = graph.nodes[i].lat;
+        nodes[i].lon = graph.nodes[i].lon;
+
+        for (unsigned j = 0; j < graph.nodes[i].out_arcs.size(); ++j) {
+            const auto& arc = graph.nodes[i].out_arcs[j];
+            auto new_arc = CHMArc{i, arc.mid_node, arc.other_node, arc.weight, arc.label};
+            add_arc(new_arc);
+        }
+    }
+}
+
+CHLRGraph CHMGraph::to_chlr() {
+    CHLRGraph chlr_graph;
+    chlr_graph.nodes.resize(nodes.size());
+
+    for (unsigned i = 0; i < nodes.size(); ++i) {
+        chlr_graph.nodes[i].rank = nodes[i].rank;
+        chlr_graph.nodes[i].lat = nodes[i].lat;
+        chlr_graph.nodes[i].lon = nodes[i].lon;
+
+        for (const auto& arc : nodes[i].arcs) {
+            CHLRArc chlr_arc{arc.to, arc.mid_node, arc.weight, arc.label};
+            chlr_graph.nodes[i].out_arcs.push_back(chlr_arc);
+        }
+    }
+
+    return chlr_graph;
+}
+
 unsigned CHMGraph::calculate_weight(CHMArc arc) {
     unsigned k = inf_weight;
     if(!arc.is_shortcut() && arc.weight < inf_weight) {
@@ -284,4 +320,17 @@ std::pair<bool, CHMArc> MinRankQueue::pop() {
     }
 
     return pair;
+}
+
+void CHMGraph::add_arc(CHMArc arc, bool avoid_duplicated) {
+    if(avoid_duplicated) {
+        for (const auto& existing_arc : nodes[arc.from].arcs) {
+            if (existing_arc == arc) {
+                return; // Arc already exists, avoid duplication
+            }
+        }
+    }
+
+    nodes[arc.from].arcs.push_back(arc);
+    nodes[arc.from].arcs.back().arc_index = nodes[arc.from].arcs.size() - 1;
 }
