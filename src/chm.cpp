@@ -28,8 +28,7 @@ CHLRGraph CHMGraph::to_chlr() {
         chlr_graph.nodes[i].lon = nodes[i].lon;
 
         for (const auto& arc : nodes[i].arcs) {
-            CHLRArc chlr_arc{arc.to, arc.mid_node, arc.weight, arc.label};
-            chlr_graph.nodes[i].out_arcs.push_back(chlr_arc);
+            chlr_graph.add_arc(arc.from, arc.mid_node, arc.to, arc.weight, arc.label);
         }
     }
 
