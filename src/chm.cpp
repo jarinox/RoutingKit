@@ -151,7 +151,7 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
 
     if (l_n != l_o) {
         get(e_o).weight = inf_weight;
-        CHMArc e_n = CHMArc{get(e_o).from, get(e_o).mid_node, get(e_o).to, w(get(e_o).from, get(e_o).to, l_n), l_n};
+        CHMArc e_n = CHMArc{get(e_o).from, get(e_o).mid_node, get(e_o).to, w_n, l_n};
         add_arc(e_n, false);
 
         get(e_o).weight = calculate_weight(get(e_o));
@@ -213,7 +213,7 @@ unsigned CHMGraph::w(unsigned from, unsigned to, Label label) {
     for (const auto& arc : nodes[from].arcs) {
         if (arc.to != to) continue;
         if (!arc.label.is_subset_of(label)) continue;
-        if (k > arc.weight) continue;
+        if (k < arc.weight) continue;
         k = arc.weight;
     }
 
