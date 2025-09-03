@@ -19,7 +19,10 @@ CHLRGraph synthetic(unsigned node_count, bool build = true, unsigned seed = 42) 
         for (int j = 0; j < rand_r(&seed) % 5 + 1; ++j) { // Random number of edges per node
             unsigned target = rand_r(&seed) % node_count;
             if (target != i) {
-                graph.add_arc(i, invalid_id, target, rand_r(&seed) % 20 + 1, Label());
+                unsigned new_weight = rand_r(&seed) % 20 + 1;
+                assert(new_weight > 0);
+                assert(new_weight < 22);
+                graph.add_arc(i, invalid_id, target, new_weight, Label());
             }
         }
     }
@@ -182,7 +185,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
         std::vector<unsigned> original_distances;
 
         // Prechange
-        for(unsigned query = 50; query < 100; ++query) {
+        for(unsigned query = 50; query < 150; query += 2) {
             CHLRQuery q(chlr);
             q.set(0, query, Label());
             q.run();
@@ -193,7 +196,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
         }
 
         // Apply random changes
-        for(unsigned i = 0; i < 40; ++i) {
+        for(unsigned i = 0; i < 50; ++i) {
             unsigned from = rand() % 200;
             if(chm.nodes[from].arcs.empty()) continue;
             unsigned arc = rand() % chm.nodes[from].arcs.size();
@@ -205,16 +208,20 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
 
         // Postchange
         CHLRGraph chlr_changed = chm.to_chlr();
-        for(unsigned query = 50; query < 100; ++query) {
+        for(unsigned query = 50; query < 150; query += 2) {
             CHLRQuery q(chlr_changed);
             q.set(0, query, Label());
             q.run();
 
             unsigned dij = chm.dijkstra(0, query, Label());
             unsigned chlr_len = path_length(q.get_arc_path());
+            if(chlr_len > inf_weight / 2 && dij < inf_weight / 2) {
+                std::cout << "Weird flip detected: CHLR length = " << chlr_len << ", Dijkstra length = " << dij << std::endl;
+                std::cout << q.get_arc_path().size() << std::endl;
+            }
             EXPECT_EQ(dij, chlr_len);
 
-            if(dij != original_distances[query - 50]){
+            if(dij != original_distances[(query / 2) - 25]){
                 if(dij == chlr_len) {
                     correct++;
                 } else {
