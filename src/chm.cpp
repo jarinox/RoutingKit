@@ -142,25 +142,23 @@ void CHMGraph::keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue&
     }
 }
 
-void CHMGraph::maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n) {
-    CHMArc& e_o = get(e_o_pos);
-    unsigned w_o = e_o.weight;
-    Label l_o = e_o.label;
+void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
+    unsigned w_o = get(e_o).weight;
+    Label l_o = get(e_o).label;
 
     dominant_shortcuts.clear();
     MinRankQueue queue(nodes.size() * 100 + 64);
 
     if (l_n != l_o) {
-        e_o.weight = inf_weight;
-        CHMArc e_n = CHMArc{e_o.from, e_o.mid_node, e_o.to, w(e_o.from, e_o.to, l_n), l_n};
-        //add_arc(e_n, false);
-        
-        e_o = get(e_o_pos);
-        e_o.weight = calculate_weight(e_o);
+        get(e_o).weight = inf_weight;
+        CHMArc e_n = CHMArc{get(e_o).from, get(e_o).mid_node, get(e_o).to, w(get(e_o).from, get(e_o).to, l_n), l_n};
+        add_arc(e_n, false);
 
-        if (e_o.weight > w_o) {
-            queue.push(e_o, true, *this);
-            keep_shortcut_dominance(e_o, true, queue);
+        get(e_o).weight = calculate_weight(get(e_o));
+
+        if (get(e_o).weight > w_o) {
+            queue.push(get(e_o), true, *this);
+            keep_shortcut_dominance(get(e_o), true, queue);
         }
 
         if (w(e_n.from, e_n.to, e_n.label) > w_n) {
@@ -168,10 +166,10 @@ void CHMGraph::maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n) {
             keep_shortcut_dominance(e_n, false, queue);
         }
     } else {
-        e_o.weight = w_n;
-        e_o.weight = calculate_weight(e_o);
-        queue.push(e_o, e_o.weight > w_o, *this);
-        keep_shortcut_dominance(e_o, e_o.weight > w_o, queue);
+        get(e_o).weight = w_n;
+        get(e_o).weight = calculate_weight(get(e_o));
+        queue.push(get(e_o), get(e_o).weight > w_o, *this);
+        keep_shortcut_dominance(get(e_o), get(e_o).weight > w_o, queue);
     }
 
     while(!queue.empty()) {
