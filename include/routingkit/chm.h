@@ -86,6 +86,8 @@ public:
     void keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue& queue);
     void maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n);
 
+    void defragment();
+
     std::vector<std::pair<CHMArc, CHMArc>> Nm(CHMArc child);
     std::vector<CHMArc> Ne(CHMArc arc);
     CHMArc Np(CHMArc e1, CHMArc e2);

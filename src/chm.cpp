@@ -82,6 +82,7 @@ unsigned CHMGraph::calculate_weight(CHMArc arc) {
 
     auto nm = Nm(arc);
     for (const auto& parents : nm) {
+        if(parents.first.weight >= inf_weight || parents.second.weight >= inf_weight) continue;
         unsigned comb_weight = parents.first.weight + parents.second.weight;
         if (comb_weight < k) {
             k = comb_weight;
@@ -152,7 +153,7 @@ void CHMGraph::maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n) {
     if (l_n != l_o) {
         e_o.weight = inf_weight;
         CHMArc e_n = CHMArc{e_o.from, e_o.mid_node, e_o.to, w(e_o.from, e_o.to, l_n), l_n};
-        // add_arc(e_n, true);
+        //add_arc(e_n, false);
         
         e_o = get(e_o_pos);
         e_o.weight = calculate_weight(e_o);
@@ -192,6 +193,7 @@ void CHMGraph::maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n) {
             }
 
             if (!increment) {
+                if(e.weight >= inf_weight || e_.weight >= inf_weight) continue;
                 if (e__.weight > e.weight + e_.weight) {
                     if (e__.weight > e.weight + e_.weight) {
                         auto& e__ref = e__.ref(*this);
@@ -218,6 +220,25 @@ unsigned CHMGraph::w(unsigned from, unsigned to, Label label) {
     }
 
     return k;
+}
+
+void CHMGraph::defragment() {
+    CHMGraph new_graph;
+    new_graph.nodes.resize(nodes.size());
+
+    for (unsigned i = 0; i < nodes.size(); ++i) {
+        new_graph.nodes[i].node_index = i;
+        new_graph.nodes[i].lat = nodes[i].lat;
+        new_graph.nodes[i].lon = nodes[i].lon;
+        new_graph.nodes[i].rank = nodes[i].rank;
+
+        for(const CHMArc& arc : nodes[i].arcs) {
+            if (arc.weight >= inf_weight || arc.label == Label::fully_restricted()) continue;
+            new_graph.add_arc(arc);
+        }
+    }
+
+    std::swap(nodes, new_graph.nodes);
 }
 
 std::vector<std::pair<CHMArc, CHMArc>> CHMGraph::Nm(CHMArc child) {
