@@ -60,16 +60,16 @@ CHLRMArc& CHLRMGraph::get_arc(CHLRMArcPos arc_pos) {
     return nodes[arc_pos.node_index].arcs[arc_pos.arc_index];
 }
 
-unsigned CHLRMGraph::original_arc_weight(CHLRMArc& arc) {
+unsigned CHLRMGraph::w(unsigned from, unsigned to, Label label) {
     unsigned k = inf_weight;
 
-    for (auto& e : nodes[arc.from].arcs) { 
-        if(e.to != arc.to) continue;
-        if(e.weight > k || e.label != arc.label) continue;
-
-        k = e.weight;
+    for (const auto& arc : nodes[from].arcs) {
+        if (arc.to != to) continue;
+        if (!arc.label.is_subset_of(label)) continue;
+        if (k > arc.weight) continue;
+        k = arc.weight;
     }
-    
+
     return k;
 }
 
@@ -162,8 +162,8 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
         unsigned to = e_o_ref.to;
 
         e_o_ref.weight = inf_weight;
-        
-        auto e_n_tmp = CHLRMArc{from, mid_node, to, w_n, l_n};
+
+        auto e_n_tmp = CHLRMArc{from, mid_node, to, w(e_o_ref.from, e_o_ref.to, l_n), l_n};
         nodes[from].arcs.push_back(e_n_tmp);
         auto& e_n = nodes[from].arcs.back();
 
@@ -176,7 +176,7 @@ void CHLRMGraph::maintenance(CHLRMArcPos e_o_pos, unsigned w_n, Label l_n) {
             keep_shortcut_dominance(e_o, queue, true);
         }
 
-        if (original_arc_weight(e_n) >= w_n) {
+        if (w(e_n.from, e_n.to, e_n.label) >= w_n) {
             e_n.weight = w_n;
             queue.push(e_n, false, *this);
             keep_shortcut_dominance(e_n, queue, false);

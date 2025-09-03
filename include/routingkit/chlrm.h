@@ -215,7 +215,7 @@ public:
         return count;
     }
 
-    unsigned original_arc_weight(CHLRMArc& arc);
+    unsigned w(unsigned from, unsigned to, Label label);
 
     std::vector<std::pair<CHLRMArc, CHLRMArc>> Nm(const CHLRMArc& arc) {
         std::vector<std::pair<CHLRMArc, CHLRMArc>> result;
