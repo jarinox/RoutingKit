@@ -48,6 +48,7 @@ unsigned CHMGraph::dijkstra(unsigned from, unsigned to, Label profile) {
     for (unsigned i = 0; i < nodes.size(); ++i) {
         for (const auto& arc : nodes[i].arcs) {
             if(arc.is_shortcut()) continue;
+            if(arc.weight >= inf_weight) continue;
             head.push_back(arc.to);
             tail.push_back(arc.from);
             labels.push_back(arc.label);
