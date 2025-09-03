@@ -391,3 +391,8 @@ void CHMGraph::add_arc(CHMArc arc, bool avoid_duplicated) {
     nodes[arc.from].arcs.push_back(arc);
     nodes[arc.from].arcs.back().arc_index = nodes[arc.from].arcs.size() - 1;
 }
+
+void CHMGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
+    CHMArc arc{from, mid_node, to, weight, label};
+    add_arc(arc);
+}

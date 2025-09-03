@@ -77,6 +77,7 @@ public:
     unsigned dijkstra(unsigned from, unsigned to, Label profile);
 
     void add_arc(CHMArc arc, bool avoid_duplicated = false);
+    void add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
 
     CHMArc& get(CHMArcPos pos) {
         return nodes[pos.node_index].arcs[pos.arc_index];
