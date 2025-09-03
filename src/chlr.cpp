@@ -519,13 +519,13 @@ CHLRArc search_arc(CHLRGraph &graph, unsigned from, unsigned to, Label restricti
 
     if(backward) { // backward
         for (const auto &arc : graph.nodes[to].in_arcs) {
-            if (arc.other_node == from && arc.label.is_subset_of(restriction)) {
+            if (arc.other_node == from && arc.label.is_subset_of(restriction) && arc.weight < inf_weight) {
                 return reversed(to, arc);
             }
-        }    
+        }
     } else { // forward
         for (const auto &arc : graph.nodes[from].out_arcs) {
-            if (arc.other_node == to && arc.label.is_subset_of(restriction)) {
+            if (arc.other_node == to && arc.label.is_subset_of(restriction) && arc.weight < inf_weight) {
                 return arc;
             }
         } 
