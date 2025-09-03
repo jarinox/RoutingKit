@@ -166,12 +166,12 @@ TEST(CHM, test_maintenance_on_circular_graphs) {
         CHMGraph chm = CHMGraph(chlr);
         
         CHLRQuery q1(chlr);
-        q1.set(0, 2, Label());
+        q1.set(0, 2, Label(1));
         q1.run();
 
         CHLRGraph chlr1 = chm.to_chlr();
         CHLRQuery q1b(chlr1);
-        q1b.set(0, 2, Label());
+        q1b.set(0, 2, Label(1));
         q1b.run();
 
         EXPECT_EQ(q1.get_arc_path().size(), q1b.get_arc_path().size());
@@ -182,7 +182,7 @@ TEST(CHM, test_maintenance_on_circular_graphs) {
 
         CHLRGraph chlr2 = chm.to_chlr();
         CHLRQuery q2(chlr2);
-        q2.set(0, 2, Label());
+        q2.set(0, 2, Label(1));
         q2.run();
 
         EXPECT_EQ(q2.get_arc_path().size(), node_count - 2);
@@ -192,7 +192,7 @@ TEST(CHM, test_maintenance_on_circular_graphs) {
 
         CHLRGraph chlr3 = chm.to_chlr();
         CHLRQuery q3(chlr3);
-        q3.set(0, 2, Label());
+        q3.set(0, 2, Label(1));
         q3.run();
 
         EXPECT_EQ(q3.get_arc_path().size(), 2);
@@ -202,17 +202,19 @@ TEST(CHM, test_maintenance_on_circular_graphs) {
 
         CHLRGraph chlr4 = chm.to_chlr();
         CHLRQuery q4(chlr4);
-        q4.set(0, 2, Label());
+        q4.set(0, 2, Label(1));
         q4.run();
 
-        EXPECT_EQ(q4.get_arc_path().size(), node_count - 2);
+        auto path = q4.get_arc_path();
+
+        EXPECT_EQ(path.size(), node_count - 2);
 
         // Restore original arc
         chm.maintenance(chm.nodes[0].arcs[0].get_pos(), 1, Label());
 
         CHLRGraph chlr5 = chm.to_chlr();
         CHLRQuery q5(chlr5);
-        q5.set(0, 2, Label());
+        q5.set(0, 2, Label(1));
         q5.run();
 
         EXPECT_EQ(q5.get_arc_path().size(), 2);
@@ -222,7 +224,7 @@ TEST(CHM, test_maintenance_on_circular_graphs) {
 
         CHLRGraph chlr6 = chm.to_chlr();
         CHLRQuery q6(chlr6);
-        q6.set(0, 2, Label());
+        q6.set(0, 2, Label(1));
         q6.run();
 
         EXPECT_EQ(q6.get_arc_path().size(), node_count - 2);
@@ -245,7 +247,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
         // Prechange
         for(unsigned query = 50; query < 150; query += 2) {
             CHLRQuery q(chlr);
-            q.set(0, query, Label());
+            q.set(0, query, Label(3));
             q.run();
 
             unsigned dij = chm.dijkstra(0, query, Label());
@@ -268,7 +270,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
         CHLRGraph chlr_changed = chm.to_chlr();
         for(unsigned query = 50; query < 150; query += 2) {
             CHLRQuery q(chlr_changed);
-            q.set(0, query, Label());
+            q.set(0, query, Label(3));
             q.run();
 
             unsigned dij = chm.dijkstra(0, query, Label());
