@@ -75,8 +75,9 @@ unsigned CHMGraph::dijkstra(unsigned from, unsigned to, Label profile) {
     return dij.get_distance_to(to);
 }
 
-unsigned CHMGraph::calculate_weight(CHMArc arc) {
+std::pair<unsigned, unsigned> CHMGraph::calculate_weight(CHMArc arc) {
     unsigned k = inf_weight;
+    unsigned mid_node = arc.mid_node;
     if(!arc.is_shortcut() && arc.weight < inf_weight) {
         k = arc.weight;
     }
@@ -87,10 +88,13 @@ unsigned CHMGraph::calculate_weight(CHMArc arc) {
         unsigned comb_weight = parents.first.weight + parents.second.weight;
         if (comb_weight < k) {
             k = comb_weight;
+            mid_node = parents.first.to;
+
+            assert(parents.first.to == parents.second.from);
         }
     }
 
-    return k;
+    return {k, mid_node};
 }
 
 void CHMGraph::keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue& queue) {
@@ -113,7 +117,7 @@ void CHMGraph::keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue&
 
     if (increment) {
         for (auto e_ : get_dominant_shortcuts(e)) {
-            unsigned k = calculate_weight(e_);
+            auto [k, mid_node] = calculate_weight(e_);
             if (k < e.weight) {
                 if (!queue.contains(e_, false)) {
                     queue.push(e_, false, *this);
@@ -121,6 +125,7 @@ void CHMGraph::keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue&
 
                 auto& e_ref = e_.ref(*this);
                 e_ref.weight = k;
+                e_ref.mid_node = mid_node;
                 remove_dominant_shortcut(e, e_);
                 add_arc(e_ref, true);
             }
@@ -155,7 +160,8 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
         CHMArc e_n = CHMArc{get(e_o).from, get(e_o).mid_node, get(e_o).to, w_n, l_n};
         add_arc(e_n, false);
 
-        get(e_o).weight = calculate_weight(get(e_o));
+        auto [k, mid_node] = calculate_weight(get(e_o));
+        get(e_o).weight = k;
 
         if (get(e_o).weight > w_o) {
             queue.push(get(e_o), true, *this);
@@ -168,7 +174,9 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
         }
     } else {
         get(e_o).weight = w_n;
-        get(e_o).weight = calculate_weight(get(e_o));
+        auto [k, mid_node] = calculate_weight(get(e_o));
+        get(e_o).weight = k;
+
         queue.push(get(e_o), get(e_o).weight > w_o, *this);
         keep_shortcut_dominance(get(e_o), get(e_o).weight > w_o, queue);
     }
@@ -181,11 +189,12 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
         for (auto e_ : partners) {
             auto e__ = Np(e_, e);
             if (increment && e__.weight < inf_weight) {
-                unsigned k = calculate_weight(e__);
+                auto [k, mid_node] = calculate_weight(e__);
 
-                if (e__.weight < k && !queue.contains(e__, true)) {
+                if (e__.weight <= k && !queue.contains(e__, true)) {
                     auto& e__ref = e__.ref(*this);
                     e__ref.weight = k;
+                    e__ref.mid_node = mid_node;
                     queue.push(e__, true, *this);
                     keep_shortcut_dominance(e__, true, queue);
                 }

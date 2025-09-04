@@ -83,7 +83,7 @@ public:
         return nodes[pos.node_index].arcs[pos.arc_index];
     }
 
-    unsigned calculate_weight(CHMArc arc);
+    std::pair<unsigned, unsigned> calculate_weight(CHMArc arc);
     void keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue& queue);
     void maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n);
 
