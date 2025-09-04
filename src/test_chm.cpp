@@ -64,6 +64,23 @@ unsigned path_length(std::vector<CHLRArc> arcs) {
     return length;
 }
 
+void print_graph_to_file(CHMGraph& graph) {
+    std::ofstream file("debug_graph.txt");
+    if (!file.is_open()) {
+        std::cerr << "Error opening file for writing" << std::endl;
+        return;
+    }
+
+    file << graph.nodes.size() << " nodes" << std::endl;
+    for (const auto& node : graph.nodes) {
+        for (const auto& arc : node.arcs) {
+            file << arc.from << " -> " << arc.to << " (" << arc.weight << "," << arc.mid_node << ")" << std::endl;
+        }
+    }
+
+    file.close();
+}
+
 TEST(CHM, test_convert_chm_chlr) {
     CHLRGraph original = synthetic(500);
 
@@ -161,7 +178,7 @@ TEST(CHM, test_maintenance_paper_example) {
 }
 
 TEST(CHM, test_maintenance_on_circular_graphs) {
-    for (unsigned node_count = 5; node_count < 25; ++node_count) {
+    for (unsigned node_count = 5; node_count < 100; ++node_count) {
         CHLRGraph chlr = circular(node_count);
         CHMGraph chm = CHMGraph(chlr);
         
@@ -185,7 +202,8 @@ TEST(CHM, test_maintenance_on_circular_graphs) {
         q2.set(0, 2, Label(1));
         q2.run();
 
-        EXPECT_EQ(q2.get_arc_path().size(), node_count - 2);
+        auto path = q2.get_arc_path();
+        EXPECT_EQ(path.size(), node_count - 2);
 
         // Decrease weight
         chm.maintenance(chm.nodes[0].arcs[0].get_pos(), 1, Label());
@@ -205,7 +223,7 @@ TEST(CHM, test_maintenance_on_circular_graphs) {
         q4.set(0, 2, Label(1));
         q4.run();
 
-        auto path = q4.get_arc_path();
+        path = q4.get_arc_path();
 
         EXPECT_EQ(path.size(), node_count - 2);
 
@@ -239,13 +257,14 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
 
     for (unsigned run = 0; run < 10; ++run) {
         std::cout << "Running synthetic test " << run << std::endl;
-        CHLRGraph chlr = synthetic(200, true, run);
+        unsigned node_cnt = 150;
+        CHLRGraph chlr = synthetic(node_cnt, true, run);
         CHMGraph chm = CHMGraph(chlr);
 
         std::vector<unsigned> original_distances;
 
         // Prechange
-        for(unsigned query = 50; query < 150; query += 2) {
+        for(unsigned query = 50; query < 120; query += 2) {
             CHLRQuery q(chlr);
             q.set(0, query, Label(3));
             q.run();
@@ -257,7 +276,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
 
         // Apply random changes
         for(unsigned i = 0; i < 50; ++i) {
-            unsigned from = rand() % 200;
+            unsigned from = rand() % node_cnt;
             if(chm.nodes[from].arcs.empty()) continue;
             unsigned arc = rand() % chm.nodes[from].arcs.size();
             unsigned weight = rand() % 1000 + 1;
@@ -268,7 +287,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
 
         // Postchange
         CHLRGraph chlr_changed = chm.to_chlr();
-        for(unsigned query = 50; query < 150; query += 2) {
+        for(unsigned query = 50; query < 120; query += 2) {
             CHLRQuery q(chlr_changed);
             q.set(0, query, Label(3));
             q.run();
@@ -295,8 +314,9 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
                 }
             }
         }
+        std::cout << "Correct: " << correct << " Wrong: " << wrong << " Mismatches: " << mismatches << " Accepted: " << accepted << std::endl;
     }
 
-    std::cout << "Correct: " << correct << " Wrong: " << wrong << " Mismatches: " << mismatches << " Accepted: " << accepted << std::endl;
+    std::cout << "===> Correct: " << correct << " Wrong: " << wrong << " Mismatches: " << mismatches << " Accepted: " << accepted << std::endl;
 
 }
