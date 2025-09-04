@@ -30,6 +30,8 @@ CHLRGraph CHMGraph::to_chlr() {
         for (const auto& arc : nodes[i].arcs) {
             chlr_graph.add_arc(arc.from, arc.mid_node, arc.to, arc.weight, arc.label);
         }
+
+        chlr_graph.nodes[i].sort_arcs_for_weight();
     }
 
     return chlr_graph;
@@ -70,6 +72,10 @@ unsigned CHMGraph::dijkstra(unsigned from, unsigned to, Label profile) {
         if(settle_result.node == to){
             break;
         }
+    }
+
+    if(dij.get_distance_to(to) == 0u){
+        return inf_weight;
     }
 
     return dij.get_distance_to(to);
