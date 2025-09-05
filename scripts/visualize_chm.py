@@ -61,11 +61,25 @@ def visualize_graph(file_path):
     # Draw node labels
     nx.draw_networkx_labels(G, pos, font_size=10, font_family='sans-serif')
 
+    # Draw edge labels (weights) for non-infinite edges
+    edge_labels = {
+        (u, v): d['weight'] 
+        for u, v, d in G.edges(data=True) 
+        if d['weight'] != 2147483647
+    }
+    nx.draw_networkx_edge_labels(
+        G, 
+        pos, 
+        edge_labels=edge_labels, 
+        font_color='darkred', 
+        font_size=8
+    )
+
     # Draw normal edges
     nx.draw_networkx_edges(G, pos, edgelist=normal_edges, edge_color='black', width=1.0, alpha=0.6, arrows=True, arrowsize=30)
     
     # Draw shortcut edges
-    #nx.draw_networkx_edges(G, pos, edgelist=shortcut_edges, edge_color='red', width=1.5, style='dashed', alpha=0.8, arrows=True, arrowsize=30)
+    nx.draw_networkx_edges(G, pos, edgelist=shortcut_edges, edge_color='red', width=1.5, style='dashed', alpha=0.8, arrows=True, arrowsize=30)
 
     # Draw infinite weight edges
     nx.draw_networkx_edges(G, pos, edgelist=inf_weight_edges, edge_color='gray', width=0.5, alpha=0.2, arrows=False)
@@ -81,12 +95,17 @@ def visualize_graph(file_path):
     plt.title("Contraction Hierarchy Visualization", size=15)
     plt.axis('off')
     
-    output_filename = "ch_visualization.png"
-    plt.savefig(output_filename)
+    if 'before' in file_path:
+        output_filename = "before.png"
+    else:
+        output_filename = "after.png"
+        
+    plt.savefig(output_filename, format='png', dpi=300)
     print(f"Graph visualization saved to '{output_filename}'")
     # To display the plot in a window, uncomment the following line
     # plt.show()
 
 if __name__ == '__main__':
     # Assuming the script is in the 'scripts' directory and the data file is in the parent directory
-    visualize_graph('debug_graph.txt')
+    visualize_graph('src/debug_graph_before.txt')
+    visualize_graph('src/debug_graph_after.txt')

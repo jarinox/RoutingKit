@@ -65,8 +65,8 @@ unsigned path_length(std::vector<CHLRArc> arcs) {
     return length;
 }
 
-void print_graph_to_file(CHMGraph& graph) {
-    std::ofstream file("debug_graph.txt");
+void print_graph_to_file(CHMGraph& graph, std::string path = "debug_graph.txt") {
+    std::ofstream file(path);
     if (!file.is_open()) {
         std::cerr << "Error opening file for writing" << std::endl;
         return;
@@ -276,6 +276,8 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
             original_distances.push_back(dij);
         }
 
+        print_graph_to_file(chm, "debug_graph_before.txt");
+
         // Apply random changes
         for(unsigned i = 0; i < min(50u, node_cnt); ++i) {
             unsigned from = rand() % node_cnt;
@@ -287,6 +289,9 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
             chm.maintenance(chm.nodes[from].arcs[arc].get_pos(), weight, label);
         }
 
+
+        print_graph_to_file(chm, "debug_graph_after.txt");
+
         // Postchange
         CHLRGraph chlr_changed = chm.to_chlr();
         for(unsigned query = 0; query < min(50u, node_cnt); query += 2) {
@@ -295,6 +300,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
             q.run();
 
             unsigned dij = chm.dijkstra(0, query, Label(3));
+
             auto chlr_path = q.get_arc_path();
             unsigned chlr_len = path_length(chlr_path);
             if(chlr_len > inf_weight / 2 && dij < inf_weight / 2) {
