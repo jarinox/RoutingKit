@@ -8,6 +8,8 @@ def visualize_graph(file_path):
 
     The file format is expected to be:
     - First line: "N nodes" where N is the number of nodes.
+    - N lines with node ranks: "Node i rank r"
+    - A line "Edges:"
     - Subsequent lines: "u -> v (weight,mid_node)" for each edge.
 
     Nodes are displayed in a circular layout. Edges are colored based on whether
@@ -28,13 +30,31 @@ def visualize_graph(file_path):
     num_nodes = int(num_nodes_match.group(1))
 
     G = nx.DiGraph()
-    G.add_nodes_from(range(num_nodes))
+
+    edge_lines_start = -1
+    for i, line in enumerate(lines):
+        if "Edges:" in line:
+            edge_lines_start = i + 1
+            break
+        
+        node_match = re.match(r'Node (\d+) rank (\d+)', line)
+        if node_match:
+            node_id, rank = map(int, node_match.groups())
+            G.add_node(node_id, rank=rank)
+
+    if not G.nodes():
+        G.add_nodes_from(range(num_nodes))
+
+    if edge_lines_start == -1:
+        print("Warning: 'Edges:' separator not found in file. Assuming no edges.")
+        edge_lines_start = len(lines)
+
 
     shortcut_edges = []
     normal_edges = []
     inf_weight_edges = []
 
-    for line in lines[1:]:
+    for line in lines[edge_lines_start:]:
         line = line.strip()
         if not line:
             continue
@@ -59,7 +79,8 @@ def visualize_graph(file_path):
     nx.draw_networkx_nodes(G, pos, node_color='skyblue', node_size=500, alpha=0.9)
     
     # Draw node labels
-    nx.draw_networkx_labels(G, pos, font_size=10, font_family='sans-serif')
+    labels = {node: f"{node} ({data.get('rank', '')})" for node, data in G.nodes(data=True)}
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=10, font_family='sans-serif')
 
     # Draw edge labels (weights) for non-infinite edges
     edge_labels = {
@@ -96,10 +117,10 @@ def visualize_graph(file_path):
     plt.axis('off')
     
     if 'before' in file_path:
-        output_filename = "before.png"
+        output_filename = "generated/before.png"
     else:
-        output_filename = "after.png"
-        
+        output_filename = "generated/after.png"
+
     plt.savefig(output_filename, format='png', dpi=300)
     print(f"Graph visualization saved to '{output_filename}'")
     # To display the plot in a window, uncomment the following line
@@ -107,5 +128,5 @@ def visualize_graph(file_path):
 
 if __name__ == '__main__':
     # Assuming the script is in the 'scripts' directory and the data file is in the parent directory
-    visualize_graph('src/debug_graph_before.txt')
-    visualize_graph('src/debug_graph_after.txt')
+    visualize_graph('generated/debug_graph_before.txt')
+    visualize_graph('generated/debug_graph_after.txt')

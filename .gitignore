@@ -16,4 +16,4 @@ __pycache__/
 
 # Generated output files
 *.html
-
+generated/

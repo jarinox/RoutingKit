@@ -74,6 +74,11 @@ void print_graph_to_file(CHMGraph& graph, std::string path = "debug_graph.txt") 
 
     file << graph.nodes.size() << " nodes" << std::endl;
     for (const auto& node : graph.nodes) {
+        file << "Node " << node.node_index << " rank " << node.rank << std::endl;
+    }
+
+    file << "Edges:" << std::endl;
+    for (const auto& node : graph.nodes) {
         for (const auto& arc : node.arcs) {
             file << arc.from << " -> " << arc.to << " (" << arc.weight << "," << arc.mid_node << ")" << std::endl;
         }
@@ -259,7 +264,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
 
     for (unsigned run = 0; run < 10; ++run) {
         std::cout << "Running synthetic test " << run << std::endl;
-        unsigned node_cnt = 10;
+        unsigned node_cnt = 6;
         CHLRGraph chlr = synthetic(node_cnt, true, run);
         CHMGraph chm = CHMGraph(chlr);
 
@@ -276,7 +281,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
             original_distances.push_back(dij);
         }
 
-        print_graph_to_file(chm, "debug_graph_before.txt");
+        print_graph_to_file(chm, "generated/debug_graph_before.txt");
 
         // Apply random changes
         for(unsigned i = 0; i < min(50u, node_cnt); ++i) {
@@ -290,7 +295,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
         }
 
 
-        print_graph_to_file(chm, "debug_graph_after.txt");
+        print_graph_to_file(chm, "generated/debug_graph_after.txt");
 
         // Postchange
         CHLRGraph chlr_changed = chm.to_chlr();
@@ -313,12 +318,12 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
                 if(dij == chlr_len) {
                     correct++;
                 } else {
-                    print_graph_to_file(chm);
                     wrong++;
+                    //q.run();
+                    //auto chlr_path = q.get_arc_path();
                 }
             } else {
                if(dij != chlr_len) {
-                    print_graph_to_file(chm);
                     mismatches++;
                 } else {
                     accepted++;
