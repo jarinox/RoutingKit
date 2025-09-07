@@ -83,7 +83,9 @@ unsigned CHMGraph::dijkstra(unsigned from, unsigned to, Label profile) {
 
 std::pair<unsigned, unsigned> CHMGraph::calculate_weight(CHMArc arc) {
     unsigned k = inf_weight;
+    arc.ref(*this).cnt = 0;
     unsigned mid_node = arc.mid_node;
+
     if(!arc.is_shortcut() && arc.weight < inf_weight) {
         k = arc.weight;
     }
@@ -95,8 +97,11 @@ std::pair<unsigned, unsigned> CHMGraph::calculate_weight(CHMArc arc) {
         if (comb_weight < k) {
             k = comb_weight;
             mid_node = parents.first.to;
+            arc.ref(*this).cnt = 1;
 
             assert(parents.first.to == parents.second.from);
+        } else if (comb_weight == k) {
+            arc.ref(*this).cnt++;
         }
     }
 
@@ -115,6 +120,7 @@ void CHMGraph::keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue&
 
         auto& e_ = _e_.ref(*this);
         e_.weight = inf_weight;
+        e_.cnt = 0;
         add_dominant_shortcut(e_, e);
         exists = true;
     }
@@ -149,6 +155,7 @@ void CHMGraph::keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue&
 
             auto& e_ref = e_.ref(*this);
             e_ref.weight = inf_weight;
+            e_ref.cnt = 0;
             add_dominant_shortcut(e, e_);
         }
     }

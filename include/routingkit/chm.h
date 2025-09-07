@@ -32,9 +32,10 @@ public:
 
     unsigned weight;
     Label label;
+    unsigned cnt;
 
     CHMArc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label)
-        : from(from), mid_node(mid_node), to(to), arc_index(invalid_id), weight(weight), label(label) {}
+        : from(from), mid_node(mid_node), to(to), arc_index(invalid_id), weight(weight), label(label), cnt(0) {}
 
     bool is_shortcut() const { return mid_node != invalid_id; }
     CHMArcPos get_pos() const { return CHMArcPos{from, arc_index}; }
@@ -86,6 +87,7 @@ public:
     std::pair<unsigned, unsigned> calculate_weight(CHMArc arc);
     void keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue& queue);
     void maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n);
+    void maintenance_optimized(CHMArcPos e_o, unsigned w_n, Label l_n);
 
     void defragment();
 
