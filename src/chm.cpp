@@ -48,7 +48,13 @@ unsigned CHMGraph::dijkstra(unsigned from, unsigned to, Label profile) {
     first_out[0] = 0;
     unsigned arc_count = 0;
     for (unsigned i = 0; i < nodes.size(); ++i) {
-        for (const auto& arc : nodes[i].arcs) {
+        auto arcs = nodes[i].arcs;
+
+        std::sort(arcs.begin(), arcs.end(), [](const CHMArc& a, const CHMArc& b) {
+            return a.weight < b.weight;
+        });
+
+        for (const auto& arc : arcs) {
             if(arc.is_shortcut()) continue;
             if(arc.weight >= inf_weight) continue;
             head.push_back(arc.to);
@@ -171,7 +177,7 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
     if (l_n != l_o) {
         get(e_o).weight = inf_weight;
         CHMArc e_n = CHMArc{get(e_o).from, get(e_o).mid_node, get(e_o).to, w_n, l_n};
-        add_arc(e_n, false);
+        add_arc(e_n);
 
         auto [k, mid_node] = calculate_weight(get(e_o));
         get(e_o).weight = k;
@@ -208,6 +214,7 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
                     auto& e__ref = e__.ref(*this);
                     e__ref.weight = k;
                     e__ref.mid_node = mid_node;
+                    add_arc(e__, true);
                     queue.push(e__, true, *this);
                     keep_shortcut_dominance(e__, true, queue);
                 }
@@ -219,6 +226,8 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
                     if (e__.weight > e.weight + e_.weight) {
                         auto& e__ref = e__.ref(*this);
                         e__ref.weight = e.weight + e_.weight;
+                        e__ref.mid_node = e.to == e_.from ? e.to : e.from;
+                        add_arc(e__, true);
                         if (!queue.contains(e__, false)) {
                             queue.push(e__, false, *this);
                             keep_shortcut_dominance(e__, false, queue);
@@ -316,6 +325,7 @@ CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2) {
 
     for (CHMArc& arc : nodes[e1.from].arcs) {
         if(arc.to != e2.to) continue;
+        if(arc.mid_node == invalid_id) continue;
         if(arc.label != e1.label.unite(e2.label)) continue;
 
         unsigned from_rank = nodes[e1.from].rank;
