@@ -201,6 +201,8 @@ TEST(CHM, test_maintenance_on_circular_graphs) {
         EXPECT_EQ(q1.get_arc_path().size(), q1b.get_arc_path().size());
         EXPECT_EQ(q1.get_arc_path().size(), 2);
 
+        print_graph_to_file(chm, "generated/debug_graph_before.txt");
+
         // Increase weight
         chm.maintenance(chm.nodes[0].arcs[0].get_pos(), 2*node_count, Label());
 
@@ -261,10 +263,12 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
     unsigned wrong = 0;
     unsigned mismatches = 0;
     unsigned accepted = 0;
+    unsigned seed = 9;
+    unsigned runs = 40;
 
-    for (unsigned run = 0; run < 10; ++run) {
+    for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running synthetic test " << run << std::endl;
-        unsigned node_cnt = 6;
+        unsigned node_cnt = 12;
         CHLRGraph chlr = synthetic(node_cnt, true, run);
         CHMGraph chm = CHMGraph(chlr);
 
@@ -283,17 +287,34 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
 
         print_graph_to_file(chm, "generated/debug_graph_before.txt");
 
+
         // Apply random changes
         for(unsigned i = 0; i < min(50u, node_cnt); ++i) {
-            unsigned from = rand() % node_cnt;
+            unsigned from = rand_r(&seed) % node_cnt;
             if(chm.nodes[from].arcs.empty()) continue;
-            unsigned arc = rand() % chm.nodes[from].arcs.size();
-            unsigned weight = rand() % 1000 + 1;
-            Label label(rand() % 5);
+            unsigned arc = rand_r(&seed) % chm.nodes[from].arcs.size();
+
+            unsigned weight = rand_r(&seed) % 1000 + 1;
+            Label label(rand_r(&seed) % 5);
+
+            if(run < (runs / 4)) {
+                weight = std::max(1u, chm.nodes[from].arcs[arc].weight / 2); // decrease weight
+                label = chm.nodes[from].arcs[arc].label;
+            } else if(run < (runs / 2)) {
+                weight = std::max(1u, chm.nodes[from].arcs[arc].weight + (rand_r(&seed) % 50 + 1)); // increase weight
+                label = chm.nodes[from].arcs[arc].label;
+            } else if(run < ((runs / 4) * 3)) {
+                weight = chm.nodes[from].arcs[arc].weight; // Only change label
+            }
 
             chm.maintenance(chm.nodes[from].arcs[arc].get_pos(), weight, label);
         }
 
+        for(unsigned i = 0; i < chm.nodes.size(); ++i) {
+            std::sort(chm.nodes[i].arcs.begin(), chm.nodes[i].arcs.end(), [](const CHMArc& a, const CHMArc& b) {
+                return a.weight < b.weight;
+            });
+        }
 
         print_graph_to_file(chm, "generated/debug_graph_after.txt");
 
@@ -330,7 +351,6 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
                 }
             }
         }
-        std::cout << "Correct: " << correct << " Wrong: " << wrong << " Mismatches: " << mismatches << " Accepted: " << accepted << std::endl;
     }
 
     std::cout << "===> Correct: " << correct << " Wrong: " << wrong << " Mismatches: " << mismatches << " Accepted: " << accepted << std::endl;
