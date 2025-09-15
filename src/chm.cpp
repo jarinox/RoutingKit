@@ -325,7 +325,7 @@ CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2) {
 
     for (CHMArc& arc : nodes[e1.from].arcs) {
         if(arc.to != e2.to) continue;
-        if(arc.mid_node == invalid_id) continue;
+        if(arc.mid_node != e1.to) continue;
         if(arc.label != e1.label.unite(e2.label)) continue;
 
         unsigned from_rank = nodes[e1.from].rank;
@@ -337,7 +337,7 @@ CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2) {
         return arc;
     }
 
-    return CHMArc{e1.from, e1.to, e2.to, inf_weight, e1.label.unite(e2.label)};
+    return CHMArc{e1.from, e1.to, e2.to, e1.weight + e2.weight, e1.label.unite(e2.label)};
 }
 
 void CHMGraph::add_dominant_shortcut(CHMArc arc, CHMArc shortcut) {
