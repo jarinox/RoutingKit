@@ -9,6 +9,8 @@
 #include <vector>
 #include <algorithm>
 
+#define DEBUG
+
 using namespace RoutingKit;
 using namespace std;
 
@@ -263,12 +265,12 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
     unsigned wrong = 0;
     unsigned mismatches = 0;
     unsigned accepted = 0;
-    unsigned seed = 9;
-    unsigned runs = 40;
+    unsigned seed = 15;
+    unsigned runs = 500;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running synthetic test " << run << std::endl;
-        unsigned node_cnt = 12;
+        unsigned node_cnt = 9;
         CHLRGraph chlr = synthetic(node_cnt, true, run);
         CHMGraph chm = CHMGraph(chlr);
 
@@ -280,7 +282,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
             q.set(0, query, Label(3));
             q.run();
 
-            unsigned dij = chm.dijkstra(0, query, Label());
+            auto [dij, dij_path] = chm.dijkstra(0, query, Label());
             EXPECT_EQ(dij, path_length(q.get_arc_path()));
             original_distances.push_back(dij);
         }
@@ -289,7 +291,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
 
 
         // Apply random changes
-        for(unsigned i = 0; i < min(50u, node_cnt); ++i) {
+        /*for(unsigned i = 0; i < min(50u, node_cnt); ++i) {
             unsigned from = rand_r(&seed) % node_cnt;
             if(chm.nodes[from].arcs.empty()) continue;
             unsigned arc = rand_r(&seed) % chm.nodes[from].arcs.size();
@@ -308,7 +310,34 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
             }
 
             chm.maintenance(chm.nodes[from].arcs[arc].get_pos(), weight, label);
+        }*/
+       // Apply only single random change to make debugging easier
+        
+       unsigned weight = 0;
+        unsigned from = rand_r(&seed) % node_cnt;
+        if(!chm.nodes[from].arcs.empty()) {
+            unsigned arc = rand_r(&seed) % chm.nodes[from].arcs.size();
+
+            weight = rand_r(&seed) % 1000 + 1;
+            Label label(rand_r(&seed) % 5);
+
+            if(run < (runs / 2)) {
+                weight = std::max(1u, chm.nodes[from].arcs[arc].weight / 2); // decrease weight
+                label = chm.nodes[from].arcs[arc].label;
+            } else {//if(run < (runs / 2)) {
+                weight = std::max(1u, chm.nodes[from].arcs[arc].weight + (rand_r(&seed) % 50 + 1)); // increase weight
+                label = chm.nodes[from].arcs[arc].label;
+            //} else if(run < ((runs / 4) * 3)) {
+            //    weight = chm.nodes[from].arcs[arc].weight; // Only change label
+            }
+            
+            if (run == 304) {
+                std::cout << "Stop here" << std::endl;
+            }
+
+            chm.maintenance(chm.nodes[from].arcs[arc].get_pos(), weight, label);
         }
+    
 
         for(unsigned i = 0; i < chm.nodes.size(); ++i) {
             std::sort(chm.nodes[i].arcs.begin(), chm.nodes[i].arcs.end(), [](const CHMArc& a, const CHMArc& b) {
@@ -325,7 +354,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
             q.set(0, query, Label(3));
             q.run();
 
-            unsigned dij = chm.dijkstra(0, query, Label(3));
+            auto [dij, dij_path] = chm.dijkstra(0, query, Label(3));
 
             auto chlr_path = q.get_arc_path();
             unsigned chlr_len = path_length(chlr_path);
@@ -340,8 +369,14 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
                     correct++;
                 } else {
                     wrong++;
-                    //q.run();
-                    //auto chlr_path = q.get_arc_path();
+
+                    #ifdef DEBUG
+                    auto [dij, dij_path] = chm.dijkstra(0, query, Label(3));
+                    CHLRQuery q(chlr_changed);
+                    q.set(0, query, Label(3));
+                    q.run();
+                    auto chlr_path = q.get_arc_path();
+                    #endif
                 }
             } else {
                if(dij != chlr_len) {

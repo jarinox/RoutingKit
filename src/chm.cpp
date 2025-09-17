@@ -37,7 +37,7 @@ CHLRGraph CHMGraph::to_chlr() {
     return chlr_graph;
 }
 
-unsigned CHMGraph::dijkstra(unsigned from, unsigned to, Label profile) {
+std::pair<unsigned, std::vector<unsigned>> CHMGraph::dijkstra(unsigned from, unsigned to, Label profile) {
     std::vector<unsigned> first_out;
     std::vector<unsigned> head;
     std::vector<unsigned> tail;
@@ -81,10 +81,15 @@ unsigned CHMGraph::dijkstra(unsigned from, unsigned to, Label profile) {
     }
 
     if(dij.get_distance_to(to) == 0u){
-        return inf_weight;
+        return {inf_weight, {}};
     }
 
-    return dij.get_distance_to(to);
+    auto path = dij.get_node_path_to(to);
+    if(path.empty()){
+        return {inf_weight, {}};
+    }
+
+    return {dij.get_distance_to(to), path};
 }
 
 std::pair<unsigned, unsigned> CHMGraph::calculate_weight(CHMArc arc) {
@@ -167,9 +172,83 @@ void CHMGraph::keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue&
     }
 }
 
+void CHMGraph::add_or_reduce_arc(CHMArc arc) {
+    for (auto& existing_arc : nodes[arc.from].arcs) {
+        if (existing_arc.to == arc.to) {
+            if (existing_arc.weight > arc.weight) {
+                if(arc.label.is_subset_of(existing_arc.label)) {
+                    existing_arc.weight = arc.weight;
+                    existing_arc.label = arc.label;
+                    existing_arc.mid_node = arc.mid_node;
+                    return;
+                }
+                // new arc is shorter but has more restrictions, continue search or add new arc
+            } else {
+                if(existing_arc.label.is_subset_of(arc.label)) {
+                    // Existing arc is shorter and has fewer restrictions, do not add new shortcut
+                    return;
+                }
+            }
+        }
+    }
+
+    add_arc(arc);
+}
+
+void CHMGraph::maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n) {
+    unsigned w_o = get(e_o).weight;
+    Label l_o = get(e_o).label;
+
+    dominant_shortcuts.clear();
+    MinRankQueue queue(nodes.size() * 100 + 64);
+
+    assert(l_n == l_o);
+
+    get(e_o).weight = w_n;
+    queue.push(get(e_o), w_n > w_o, *this);
+
+    while(!queue.empty()) {
+        auto [increment, e] = queue.pop();
+        auto partners = Ne(e);
+
+        for (auto e_ : partners) {
+            auto e__ = Np(e_, e);
+            if (increment && e__.weight < inf_weight) {
+                auto [k, mid_node] = calculate_weight(e__);
+
+                if (e__.weight <= k && !queue.contains(e__, true)) {
+                    auto& e__ref = e__.ref(*this);
+                    e__ref.weight = k;
+                    e__ref.mid_node = mid_node;
+                    add_or_reduce_arc(e__ref);
+                    queue.push(e__ref, true, *this);
+                }
+            }
+
+            if (!increment) {
+                if(e.weight >= inf_weight || e_.weight >= inf_weight) continue;
+                if (e__.weight >= e.weight + e_.weight) {
+                    auto& e__ref = e__.ref(*this);
+                    e__ref.weight = e.weight + e_.weight;
+                    e__ref.mid_node = e.to == e_.from ? e.to : e.from;
+                    add_or_reduce_arc(e__ref);
+                    if (!queue.contains(e__, false)) {
+                        queue.push(e__ref, false, *this);
+                    }
+                }
+            }
+        }
+    }
+}
+
 void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
     unsigned w_o = get(e_o).weight;
     Label l_o = get(e_o).label;
+
+    if(l_o == l_n) {
+        maintenance_alt(e_o, w_n, l_n);
+        return;
+    }
 
     dominant_shortcuts.clear();
     MinRankQueue queue(nodes.size() * 100 + 64);
@@ -193,8 +272,8 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
         }
     } else {
         get(e_o).weight = w_n;
-        auto [k, mid_node] = calculate_weight(get(e_o));
-        get(e_o).weight = k;
+        //auto [k, mid_node] = calculate_weight(get(e_o));
+        //get(e_o).weight = k;
 
         queue.push(get(e_o), get(e_o).weight > w_o, *this);
         keep_shortcut_dominance(get(e_o), get(e_o).weight > w_o, queue);
@@ -214,9 +293,9 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
                     auto& e__ref = e__.ref(*this);
                     e__ref.weight = k;
                     e__ref.mid_node = mid_node;
-                    add_arc(e__, true);
-                    queue.push(e__, true, *this);
-                    keep_shortcut_dominance(e__, true, queue);
+                    add_arc(e__ref, true);
+                    queue.push(e__ref, true, *this);
+                    keep_shortcut_dominance(e__ref, true, queue);
                 }
             }
 
@@ -227,10 +306,10 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
                         auto& e__ref = e__.ref(*this);
                         e__ref.weight = e.weight + e_.weight;
                         e__ref.mid_node = e.to == e_.from ? e.to : e.from;
-                        add_arc(e__, true);
-                        if (!queue.contains(e__, false)) {
-                            queue.push(e__, false, *this);
-                            keep_shortcut_dominance(e__, false, queue);
+                        add_arc(e__ref, true);
+                        if (!queue.contains(e__ref, false)) {
+                            queue.push(e__ref, false, *this);
+                            keep_shortcut_dominance(e__ref, false, queue);
                         }
                     }
                 }
@@ -266,6 +345,10 @@ void CHMGraph::defragment() {
             if (arc.weight >= inf_weight || arc.label == Label::fully_restricted()) continue;
             new_graph.add_arc(arc);
         }
+
+        std::sort(new_graph.nodes[i].arcs.begin(), new_graph.nodes[i].arcs.end(), [](const CHMArc& a, const CHMArc& b) {
+            return a.weight < b.weight;
+        });
     }
 
     std::swap(nodes, new_graph.nodes);

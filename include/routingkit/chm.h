@@ -75,7 +75,7 @@ public:
     CHMGraph() = default;
     CHMGraph(CHLRGraph& graph);
     CHLRGraph to_chlr();
-    unsigned dijkstra(unsigned from, unsigned to, Label profile);
+    std::pair<unsigned, std::vector<unsigned>> dijkstra(unsigned from, unsigned to, Label profile);
 
     void add_arc(CHMArc arc, bool avoid_duplicated = false);
     void add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
@@ -100,6 +100,9 @@ public:
     std::vector<CHMArc> get_dominant_shortcuts(CHMArc arc);
     void remove_dominant_shortcut(CHMArc arc, CHMArc shortcut);
     unsigned w(unsigned from, unsigned to, Label label);
+
+    void add_or_reduce_arc(CHMArc arc);
+    void maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n);
 };
 
 inline CHMArc& CHMArc::ref(CHMGraph& graph) {
