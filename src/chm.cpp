@@ -205,6 +205,14 @@ void CHMGraph::maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n) {
     assert(l_n == l_o);
 
     get(e_o).weight = w_n;
+    if (w_n > w_o){
+        auto [k, mid_node] = calculate_weight(get(e_o));
+
+        if(k < w_n) {
+            add_or_reduce_arc(CHMArc{get(e_o).from, mid_node, get(e_o).to, k, l_o});
+        }
+    }
+
     queue.push(get(e_o), w_n > w_o, *this);
 
     while(!queue.empty()) {
