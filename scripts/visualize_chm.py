@@ -1,6 +1,7 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 import re
+import random
 
 def visualize_graph(file_path):
     """
@@ -29,7 +30,7 @@ def visualize_graph(file_path):
     
     num_nodes = int(num_nodes_match.group(1))
 
-    G = nx.DiGraph()
+    G = nx.MultiDiGraph()
 
     edge_lines_start = -1
     for i, line in enumerate(lines):
@@ -40,7 +41,8 @@ def visualize_graph(file_path):
         node_match = re.match(r'Node (\d+) rank (\d+)', line)
         if node_match:
             node_id, rank = map(int, node_match.groups())
-            G.add_node(node_id, rank=rank)
+            if not G.has_node(node_id):
+                G.add_node(node_id, rank=rank)
 
     if not G.nodes():
         G.add_nodes_from(range(num_nodes))
@@ -49,11 +51,6 @@ def visualize_graph(file_path):
         print("Warning: 'Edges:' separator not found in file. Assuming no edges.")
         edge_lines_start = len(lines)
 
-
-    shortcut_edges = []
-    normal_edges = []
-    inf_weight_edges = []
-
     for line in lines[edge_lines_start:]:
         line = line.strip()
         if not line:
@@ -61,13 +58,14 @@ def visualize_graph(file_path):
         match = re.match(r'(\d+)\s*->\s*(\d+)\s*\((\d+),(\d+)\)', line)
         if match:
             u, v, weight, mid_node = map(int, match.groups())
-            G.add_edge(u, v, weight=weight, mid_node=mid_node)
+            
+            edge_type = 'normal'
             if weight == 2147483647:
-                inf_weight_edges.append((u, v))
-            elif mid_node == 4294967295:
-                normal_edges.append((u, v))
-            else:
-                shortcut_edges.append((u, v))
+                edge_type = 'inf_weight'
+            elif mid_node != 4294967295:
+                edge_type = 'shortcut'
+            
+            G.add_edge(u, v, weight=weight, mid_node=mid_node, type=edge_type)
         else:
             print(f"Warning: Could not parse edge from line: '{line}'")
 
@@ -82,28 +80,23 @@ def visualize_graph(file_path):
     labels = {node: f"{node} ({data.get('rank', '')})" for node, data in G.nodes(data=True)}
     nx.draw_networkx_labels(G, pos, labels=labels, font_size=10, font_family='sans-serif')
 
-    # Draw edge labels (weights) for non-infinite edges
-    edge_labels = {
-        (u, v): d['weight'] 
-        for u, v, d in G.edges(data=True) 
-        if d['weight'] != 2147483647
-    }
-    nx.draw_networkx_edge_labels(
-        G, 
-        pos, 
-        edge_labels=edge_labels, 
-        font_color='darkred', 
-        font_size=8
-    )
+    # Draw edges and their labels
+    for u, v, key, data in G.edges(keys=True, data=True):
+        rad = random.uniform(-0.3, 0.3)
+        connectionstyle = f'arc3,rad={rad}'
+        edge_type = data.get('type', 'normal')
+        weight = data.get('weight')
 
-    # Draw normal edges
-    nx.draw_networkx_edges(G, pos, edgelist=normal_edges, edge_color='black', width=1.0, alpha=0.6, arrows=True, arrowsize=30)
-    
-    # Draw shortcut edges
-    nx.draw_networkx_edges(G, pos, edgelist=shortcut_edges, edge_color='red', width=1.5, style='dashed', alpha=0.8, arrows=True, arrowsize=30)
-
-    # Draw infinite weight edges
-    nx.draw_networkx_edges(G, pos, edgelist=inf_weight_edges, edge_color='gray', width=0.5, alpha=0.2, arrows=False)
+        if edge_type == 'normal':
+            nx.draw_networkx_edges(G, pos, edgelist=[(u, v, key)], connectionstyle=connectionstyle, edge_color='black', width=1.0, alpha=0.6, arrows=True, arrowsize=30)
+            if weight is not None and weight != 2147483647:
+                nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): weight}, font_color='darkgreen', font_size=8, label_pos=0.3, bbox=dict(facecolor='white', alpha=0, edgecolor='none'), connectionstyle=connectionstyle)
+        elif edge_type == 'shortcut':
+            nx.draw_networkx_edges(G, pos, edgelist=[(u, v, key)], connectionstyle=connectionstyle, edge_color='red', width=1.5, style='dashed', alpha=0.8, arrows=True, arrowsize=30)
+            if weight is not None and weight != 2147483647:
+                nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): weight}, font_color='darkred', font_size=8, label_pos=0.3, bbox=dict(facecolor='white', alpha=0, edgecolor='none'), connectionstyle=connectionstyle)
+        elif edge_type == 'inf_weight':
+            nx.draw_networkx_edges(G, pos, edgelist=[(u, v, key)], connectionstyle=connectionstyle, edge_color='gray', width=0.5, alpha=0.2, arrows=False)
 
     # Create a legend
     legend_elements = [
