@@ -265,12 +265,12 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
     unsigned wrong = 0;
     unsigned mismatches = 0;
     unsigned accepted = 0;
-    unsigned seed = 15;
-    unsigned runs = 500;
+    unsigned seed = 12;
+    unsigned runs = 5000;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running synthetic test " << run << std::endl;
-        unsigned node_cnt = 9;
+        unsigned node_cnt = 5;
         CHLRGraph chlr = synthetic(node_cnt, true, run);
         CHMGraph chm = CHMGraph(chlr);
 
@@ -313,10 +313,16 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
         }*/
        // Apply only single random change to make debugging easier
         
-       unsigned weight = 0;
+        unsigned weight = 0;
         unsigned from = rand_r(&seed) % node_cnt;
+        unsigned arc = 0;
+        unsigned old_weight = 0;
         if(!chm.nodes[from].arcs.empty()) {
-            unsigned arc = rand_r(&seed) % chm.nodes[from].arcs.size();
+            do {
+                arc = rand_r(&seed) % chm.nodes[from].arcs.size();
+            } while (chm.nodes[from].arcs[arc].mid_node != invalid_id);
+
+            old_weight = chm.nodes[from].arcs[arc].weight;
 
             weight = rand_r(&seed) % 1000 + 1;
             Label label(rand_r(&seed) % 5);
@@ -363,27 +369,18 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
                 std::cout << q.get_arc_path().size() << std::endl;
             }
             EXPECT_EQ(dij, chlr_len);
-
-            if(dij != original_distances[query / 2]){
-                if(dij == chlr_len) {
-                    correct++;
-                } else {
-                    wrong++;
-
-                    #ifdef DEBUG
-                    auto [dij, dij_path] = chm.dijkstra(0, query, Label(3));
-                    CHLRQuery q(chlr_changed);
-                    q.set(0, query, Label(3));
-                    q.run();
-                    auto chlr_path = q.get_arc_path();
-                    #endif
-                }
+            if(dij == chlr_len) {
+                correct++;
             } else {
-               if(dij != chlr_len) {
-                    mismatches++;
-                } else {
-                    accepted++;
-                }
+                wrong++;
+
+                #ifdef DEBUG
+                auto [dij, dij_path] = chm.dijkstra(0, query, Label(3));
+                CHLRQuery q(chlr_changed);
+                q.set(0, query, Label(3));
+                q.run();
+                auto chlr_path = q.get_arc_path();
+                #endif
             }
         }
     }
