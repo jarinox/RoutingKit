@@ -199,45 +199,45 @@ void CHMGraph::maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n) {
     unsigned w_o = get(e_o).weight;
     Label l_o = get(e_o).label;
 
-    dominant_shortcuts.clear();
     MinRankQueue queue(nodes.size() * 100 + 64);
 
     assert(l_n == l_o);
+    bool is_inc = w_n > w_o;
 
-    get(e_o).weight = w_n;
-    if (w_n > w_o){
-        auto [k, mid_node] = calculate_weight(get(e_o));
 
-        if(k < w_n) {
-            add_or_reduce_arc(CHMArc{get(e_o).from, mid_node, get(e_o).to, k, l_o});
-        }
+    if(is_inc) {
+        queue.push(get(e_o), is_inc, *this);
+        get(e_o).weight = w_n;
+    } else {
+        get(e_o).weight = w_n;
+        queue.push(get(e_o), is_inc, *this);
     }
-
-    queue.push(get(e_o), w_n > w_o, *this);
 
     while(!queue.empty()) {
         auto [increment, e] = queue.pop();
-        auto partners = Ne(e);
+        auto partners = Ne(e, increment);
 
         for (auto e_ : partners) {
-            auto e__ = Np(e_, e);
+            auto [e__, is_new] = child(e_, e);
+            //assert(!is_new);
+            
             if (increment && e__.weight < inf_weight) {
                 auto [k, mid_node] = calculate_weight(e__);
+                if(is_new) add_arc(e__);
 
                 if (e__.weight <= k && !queue.contains(e__, true)) {
                     auto& e__ref = e__.ref(*this);
+                    queue.push(e__ref, true, *this);
+
                     e__ref.weight = k;
                     e__ref.mid_node = mid_node;
-                    add_or_reduce_arc(e__ref);
-                    queue.push(e__ref, true, *this);
                 }
             }
 
             if (!increment) {
-                
                 if(e.weight >= inf_weight || e_.weight >= inf_weight) continue;
-                if (e__.weight >= e.weight + e_.weight) {
-                    add_arc(e__, true);
+                if (e__.weight > e.weight + e_.weight) {
+                    if(is_new) add_arc(e__);
                     auto& e__ref = e__.ref(*this);
                     e__ref.weight = e.weight + e_.weight;
                     e__ref.mid_node = e.to == e_.from ? e.to : e.from;
@@ -295,16 +295,16 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
         auto partners = Ne(e);
 
         for (auto e_ : partners) {
-            auto e__ = Np(e_, e);
+            auto [e__, is_new] = Np(e_, e);
             if (increment && e__.weight < inf_weight) {
                 auto [k, mid_node] = calculate_weight(e__);
 
                 if (e__.weight <= k && !queue.contains(e__, true)) {
                     auto& e__ref = e__.ref(*this);
+                    queue.push(e__ref, true, *this);
                     e__ref.weight = k;
                     e__ref.mid_node = mid_node;
                     add_arc(e__ref, true);
-                    queue.push(e__ref, true, *this);
                     keep_shortcut_dominance(e__ref, true, queue);
                 }
             }
@@ -385,8 +385,10 @@ std::vector<std::pair<CHMArc, CHMArc>> CHMGraph::Nm(CHMArc child) {
     return result;
 }
 
-std::vector<CHMArc> CHMGraph::Ne(CHMArc arc) {
+std::vector<CHMArc> CHMGraph::Ne(CHMArc arc, bool increment) {
     std::vector<CHMArc> result;
+
+    if(nodes[arc.from].rank >= nodes[arc.to].rank) increment = false;
 
     for(const CHMNode& node : nodes) {
         for(const CHMArc& other : node.arcs) {
@@ -394,12 +396,16 @@ std::vector<CHMArc> CHMGraph::Ne(CHMArc arc) {
                 if(nodes[other.from].rank > nodes[other.to].rank
                 && nodes[arc.to].rank > nodes[other.to].rank) {
                     result.push_back(other);
+                } else if(!increment && nodes[other.from].rank < nodes[arc.to].rank) {
+                    result.push_back(other);
                 }
             }
 
             if(arc.to == other.from && arc.from != other.to) {
                 if(nodes[other.to].rank > nodes[other.from].rank
                 && nodes[arc.from].rank > nodes[other.from].rank) {
+                    result.push_back(other);
+                } else if(!increment && nodes[other.to].rank > nodes[arc.from].rank) {
                     result.push_back(other);
                 }
             }
@@ -409,7 +415,26 @@ std::vector<CHMArc> CHMGraph::Ne(CHMArc arc) {
     return result;
 }
 
-CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2) {
+std::pair<CHMArc, bool> CHMGraph::child(CHMArc e1, CHMArc e2) {
+    if (e1.to != e2.from) {
+        std::swap(e1, e2);
+    }
+
+    assert(e1.to == e2.from);
+
+    for (CHMArc& arc : nodes[e1.from].arcs) {
+        if(arc.to != e2.to) continue;
+        if(arc.mid_node == invalid_id) continue;
+        if(arc.weight != e1.weight + e2.weight) continue;
+        if(arc.label != e1.label.unite(e2.label)) continue;
+
+        return {arc, false};
+    }
+
+    return {CHMArc{e1.from, e1.to, e2.to, e1.weight + e2.weight, e1.label.unite(e2.label)}, true};
+}
+
+std::pair<CHMArc, bool> CHMGraph::Np(CHMArc e1, CHMArc e2) {
     if (e1.to != e2.from) {
         std::swap(e1, e2);
     }
@@ -427,10 +452,10 @@ CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2) {
 
         if(from_rank <= mid_rank || to_rank <= mid_rank) continue;
 
-        return arc;
+        return {arc, false};
     }
 
-    return CHMArc{e1.from, e1.to, e2.to, e1.weight + e2.weight, e1.label.unite(e2.label)};
+    return {CHMArc{e1.from, e1.to, e2.to, e1.weight + e2.weight, e1.label.unite(e2.label)}, true};
 }
 
 void CHMGraph::add_dominant_shortcut(CHMArc arc, CHMArc shortcut) {
@@ -573,8 +598,73 @@ std::vector<CHMArc> CHMGraph::SCSp(CHMArc e) {
             if(arc.to == e.from || arc.from == e.from || arc.to == e.to || arc.from == e.to) {
                 if (!arc.is_shortcut()) continue;
                 if (arc.weight >= inf_weight) continue;
-                
+
                 result.push_back(arc);
+            }
+        }
+    }
+
+    return result;
+}
+
+
+void CHMGraph::DCHp_scsWDec(CHMArcPos e_o, unsigned w_n) {
+    unsigned w_o = get(e_o).weight;
+    assert(w_n < w_o);
+
+    MinRankQueue queue(nodes.size() * 100 + 64);
+    get(e_o).weight = w_n;
+    queue.push(get(e_o), false, *this);
+
+    while(!queue.empty()) {
+        auto [increment, e] = queue.pop();
+        assert(!increment);
+
+        unsigned u = e.from;
+        unsigned v = e.to;
+
+        if(nodes[u].rank > nodes[v].rank) {
+            std::swap(u, v);
+        }
+
+        assert(nodes[u].rank < nodes[v].rank);
+
+        for(unsigned w : N(u)) {
+            if(nodes[u].rank >= nodes[w].rank) continue;
+            if(w == v) continue;
+
+            if(nodes[w].rank < nodes[v].rank) {
+                unsigned w_v_sc_weight = 0;
+                unsigned u_w_sc_weight = 0;
+                unsigned u_v_sc_weight = 0;
+
+                if(w_v_sc_weight > u_w_sc_weight + u_v_sc_weight) {
+                    // update wv shortcut and push to queue
+                } else {
+
+                }
+            } else {
+
+            }
+        }
+    }
+}
+
+
+std::vector<unsigned> CHMGraph::N(unsigned v) {
+    std::vector<unsigned> result;
+
+    // Outgoing arcs
+    for(const CHMArc& arc : nodes[v].arcs) {
+        if(arc.weight >= inf_weight) continue;
+        result.push_back(arc.to);
+    }
+
+    // Incoming arcs
+    for (const CHMNode& node : nodes) {
+        for (const CHMArc& arc : node.arcs) {
+            if(arc.to == v && arc.from != v) {
+                result.push_back(arc.from);
             }
         }
     }

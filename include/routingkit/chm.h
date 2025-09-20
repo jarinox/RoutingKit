@@ -93,8 +93,9 @@ public:
 
     std::vector<std::pair<CHMArc, CHMArc>> Nm(CHMArc child);
     std::vector<CHMArc> SCSp(CHMArc e);
-    std::vector<CHMArc> Ne(CHMArc arc);
-    CHMArc Np(CHMArc e1, CHMArc e2);
+    std::vector<CHMArc> Ne(CHMArc arc, bool ignore_ranks = false);
+    std::pair<CHMArc, bool> Np(CHMArc e1, CHMArc e2);
+    std::pair<CHMArc, bool> child(CHMArc e1, CHMArc e2);
 
     void add_dominant_shortcut(CHMArc arc, CHMArc shortcut);
     bool has_dominant_shortcut(CHMArc arc, CHMArc shortcut);
@@ -102,10 +103,14 @@ public:
     void remove_dominant_shortcut(CHMArc arc, CHMArc shortcut);
     unsigned w(unsigned from, unsigned to, Label label);
 
+    void DCHp_scsWDec(CHMArcPos e_o, unsigned w_n);
+
     void add_or_reduce_arc(CHMArc arc);
     void maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n);
 
     unsigned witness_search(unsigned from, unsigned to, unsigned weight, Label label);
+
+    std::vector<unsigned> N(unsigned v);
 };
 
 inline CHMArc& CHMArc::ref(CHMGraph& graph) {

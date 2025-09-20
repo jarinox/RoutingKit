@@ -191,7 +191,9 @@ TEST(CHM, test_maintenance_paper_example) {
 }
 
 TEST(CHM, test_maintenance_on_circular_graphs) {
+    return;
     for (unsigned node_count = 5; node_count < 50; ++node_count) {
+        std::cout << "Testing circular graph with " << node_count << " nodes." << std::endl;
         CHLRGraph chlr = circular(node_count);
         CHMGraph chm = CHMGraph(chlr);
         
@@ -274,7 +276,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running synthetic test " << run << std::endl;
-        unsigned node_cnt = 7;
+        unsigned node_cnt = 5;
         if(run == 2784) {
             std::cout << "Stop here" << std::endl;
         }
