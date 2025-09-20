@@ -92,6 +92,7 @@ public:
     void defragment();
 
     std::vector<std::pair<CHMArc, CHMArc>> Nm(CHMArc child);
+    std::vector<CHMArc> SCSp(CHMArc e);
     std::vector<CHMArc> Ne(CHMArc arc);
     CHMArc Np(CHMArc e1, CHMArc e2);
 
@@ -103,6 +104,8 @@ public:
 
     void add_or_reduce_arc(CHMArc arc);
     void maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n);
+
+    unsigned witness_search(unsigned from, unsigned to, unsigned weight, Label label);
 };
 
 inline CHMArc& CHMArc::ref(CHMGraph& graph) {

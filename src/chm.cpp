@@ -234,12 +234,14 @@ void CHMGraph::maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n) {
             }
 
             if (!increment) {
+                
                 if(e.weight >= inf_weight || e_.weight >= inf_weight) continue;
                 if (e__.weight >= e.weight + e_.weight) {
+                    add_arc(e__, true);
                     auto& e__ref = e__.ref(*this);
                     e__ref.weight = e.weight + e_.weight;
                     e__ref.mid_node = e.to == e_.from ? e.to : e.from;
-                    add_or_reduce_arc(e__ref);
+                    //add_or_reduce_arc(e__ref);
                     if (!queue.contains(e__, false)) {
                         queue.push(e__ref, false, *this);
                     }
@@ -416,7 +418,7 @@ CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2) {
 
     for (CHMArc& arc : nodes[e1.from].arcs) {
         if(arc.to != e2.to) continue;
-        if(arc.mid_node != e1.to) continue;
+        //if(arc.mid_node != e1.to) continue;
         if(arc.label != e1.label.unite(e2.label)) continue;
 
         unsigned from_rank = nodes[e1.from].rank;
@@ -519,4 +521,63 @@ void CHMGraph::add_arc(CHMArc arc, bool avoid_duplicated) {
 void CHMGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
     CHMArc arc{from, mid_node, to, weight, label};
     add_arc(arc);
+}
+
+unsigned CHMGraph::witness_search(unsigned from, unsigned to, unsigned weight, Label label) {
+    MinIDQueue queue(nodes.size());
+    std::vector<unsigned> distances(nodes.size(), inf_weight);
+    std::vector<bool> visited(nodes.size(), false);
+    queue.push({from, 0});
+    distances[from] = 0;
+
+    while (!queue.empty()) {
+        auto [current, dist] = queue.pop();
+        visited[current] = true;
+
+        if(distances[current] > weight) {
+            break;
+        }
+
+        if (current == to) {
+            return dist;
+        }
+
+        for (const auto& arc : nodes[current].arcs) {
+            if(visited[arc.to]) continue;
+
+            if (dist + arc.weight < distances[arc.to]) {
+                if (!arc.label.is_subset_of(label)) continue;
+                if (arc.weight >= inf_weight) continue;
+
+                distances[arc.to] = dist + arc.weight;
+
+                if (queue.contains_id(arc.to)) {
+                    queue.decrease_key({arc.to, distances[arc.to]});
+                } else {
+                    queue.push({arc.to, distances[arc.to]});
+                }                
+            }
+        }
+    }
+
+    return inf_weight;
+}
+
+
+std::vector<CHMArc> CHMGraph::SCSp(CHMArc e) {
+    std::vector<CHMArc> result;
+
+    // Collect relevant arcs
+    for(auto node : nodes) {
+        for (auto arc : node.arcs) {
+            if(arc.to == e.from || arc.from == e.from || arc.to == e.to || arc.from == e.to) {
+                if (!arc.is_shortcut()) continue;
+                if (arc.weight >= inf_weight) continue;
+                
+                result.push_back(arc);
+            }
+        }
+    }
+
+    return result;
 }

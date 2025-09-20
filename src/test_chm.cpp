@@ -22,12 +22,16 @@ CHLRGraph synthetic(unsigned node_count, bool build = true, unsigned seed = 42) 
         for (int j = 0; j < rand_r(&seed) % 5 + 1; ++j) { // Random number of edges per node
             unsigned target = rand_r(&seed) % node_count;
             if (target != i) {
-                unsigned new_weight = rand_r(&seed) % 20 + 1;
-                assert(new_weight > 0);
-                assert(new_weight < 22);
+                unsigned new_weight = rand_r(&seed) % 20 + 5;
+                assert(new_weight > 1);
+                assert(new_weight < 30);
                 graph.add_arc(i, invalid_id, target, new_weight, Label());
             }
         }
+    }
+
+    for(unsigned i = 0; i < node_count; ++i) {
+        graph.nodes[i].sort_arcs_for_weight();
     }
 
     if(!build) return graph;
@@ -265,12 +269,15 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
     unsigned wrong = 0;
     unsigned mismatches = 0;
     unsigned accepted = 0;
-    unsigned seed = 12;
-    unsigned runs = 5000;
+    unsigned seed = 22;
+    unsigned runs = 50000;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running synthetic test " << run << std::endl;
-        unsigned node_cnt = 5;
+        unsigned node_cnt = 7;
+        if(run == 2784) {
+            std::cout << "Stop here" << std::endl;
+        }
         CHLRGraph chlr = synthetic(node_cnt, true, run);
         CHMGraph chm = CHMGraph(chlr);
 
@@ -289,31 +296,29 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
 
         print_graph_to_file(chm, "generated/debug_graph_before.txt");
 
+        std::vector<std::pair<CHMArc, CHMArc>> changes;
 
         // Apply random changes
-        /*for(unsigned i = 0; i < min(50u, node_cnt); ++i) {
+        for(unsigned i = 0; i < node_cnt; ++i) {
             unsigned from = rand_r(&seed) % node_cnt;
             if(chm.nodes[from].arcs.empty()) continue;
             unsigned arc = rand_r(&seed) % chm.nodes[from].arcs.size();
+            if(chm.nodes[from].arcs[arc].mid_node != invalid_id) continue;
 
-            unsigned weight = rand_r(&seed) % 1000 + 1;
-            Label label(rand_r(&seed) % 5);
+            unsigned old_weight = chm.nodes[from].arcs[arc].weight;
+            unsigned weight = (rand_r(&seed) % (old_weight - 1)) + 2;
+            if(weight >= old_weight) continue; // only decrease weight
+            Label label = chm.nodes[from].arcs[arc].label;
 
-            if(run < (runs / 4)) {
-                weight = std::max(1u, chm.nodes[from].arcs[arc].weight / 2); // decrease weight
-                label = chm.nodes[from].arcs[arc].label;
-            } else if(run < (runs / 2)) {
-                weight = std::max(1u, chm.nodes[from].arcs[arc].weight + (rand_r(&seed) % 50 + 1)); // increase weight
-                label = chm.nodes[from].arcs[arc].label;
-            } else if(run < ((runs / 4) * 3)) {
-                weight = chm.nodes[from].arcs[arc].weight; // Only change label
-            }
-
+            CHMArc before = chm.nodes[from].arcs[arc];
             chm.maintenance(chm.nodes[from].arcs[arc].get_pos(), weight, label);
-        }*/
+            CHMArc after = chm.nodes[from].arcs[arc];
+
+            changes.push_back({before, after});
+        }
        // Apply only single random change to make debugging easier
         
-        unsigned weight = 0;
+        /*unsigned weight = 0;
         unsigned from = rand_r(&seed) % node_cnt;
         unsigned arc = 0;
         unsigned old_weight = 0;
@@ -321,28 +326,18 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
             do {
                 arc = rand_r(&seed) % chm.nodes[from].arcs.size();
             } while (chm.nodes[from].arcs[arc].mid_node != invalid_id);
-
-            old_weight = chm.nodes[from].arcs[arc].weight;
-
-            weight = rand_r(&seed) % 1000 + 1;
-            Label label(rand_r(&seed) % 5);
-
-            if(run < (runs / 2)) {
-                weight = std::max(1u, chm.nodes[from].arcs[arc].weight / 2); // decrease weight
-                label = chm.nodes[from].arcs[arc].label;
-            } else {//if(run < (runs / 2)) {
-                weight = std::max(1u, chm.nodes[from].arcs[arc].weight + (rand_r(&seed) % 50 + 1)); // increase weight
-                label = chm.nodes[from].arcs[arc].label;
-            //} else if(run < ((runs / 4) * 3)) {
-            //    weight = chm.nodes[from].arcs[arc].weight; // Only change label
-            }
             
-            if (run == 304) {
+            
+            if (run == 4364) {
                 std::cout << "Stop here" << std::endl;
             }
 
+            Label label = chm.nodes[from].arcs[arc].label;
+            old_weight = chm.nodes[from].arcs[arc].weight;
+            weight = rand_r(&seed) % (old_weight - 1) + 1; // decrease weight
+
             chm.maintenance(chm.nodes[from].arcs[arc].get_pos(), weight, label);
-        }
+        }*/
     
 
         for(unsigned i = 0; i < chm.nodes.size(); ++i) {

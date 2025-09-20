@@ -103,8 +103,8 @@ void CHLR::build(bool print_progress) {
 
                 if (shortcut_weight < witness_weight) {
                     auto need_add = graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                    if(need_add)
-                        contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                    //if(need_add) // disabled in order to enable the usage of DCH Maintenance algorithm
+                    contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
 
                 }
             }
