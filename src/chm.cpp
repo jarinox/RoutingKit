@@ -218,6 +218,9 @@ void CHMGraph::maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n) {
     while(!queue.empty()) {
         auto [increment, e] = queue.pop();
         auto partners = Ne(e);
+        std::sort(partners.begin(), partners.end(), [](const CHMArc& a, const CHMArc& b) {
+            return a.weight < b.weight;
+        });
 
         for (auto e_ : partners) {
             auto e__ = Np(e_, e);
@@ -242,9 +245,9 @@ void CHMGraph::maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n) {
                     e__ref.weight = e.weight + e_.weight;
                     e__ref.mid_node = e.to == e_.from ? e.to : e.from;
                     //add_or_reduce_arc(e__ref);
-                    if (!queue.contains(e__, false)) {
+                    //if (!queue.contains(e__, false)) {
                         queue.push(e__ref, false, *this);
-                    }
+                    //}
                 }
             }
         }

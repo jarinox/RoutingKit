@@ -269,13 +269,13 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
     unsigned wrong = 0;
     unsigned mismatches = 0;
     unsigned accepted = 0;
-    unsigned seed = 22;
+    unsigned seed = 42;
     unsigned runs = 50000;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running synthetic test " << run << std::endl;
-        unsigned node_cnt = 7;
-        if(run == 2784) {
+        unsigned node_cnt = 25;
+        if(run == 10189) {
             std::cout << "Stop here" << std::endl;
         }
         CHLRGraph chlr = synthetic(node_cnt, true, run);
@@ -352,10 +352,10 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
         CHLRGraph chlr_changed = chm.to_chlr();
         for(unsigned query = 0; query < min(50u, node_cnt); query += 2) {
             CHLRQuery q(chlr_changed);
-            q.set(0, query, Label(3));
+            q.set(0, query, Label());
             q.run();
 
-            auto [dij, dij_path] = chm.dijkstra(0, query, Label(3));
+            auto [dij, dij_path] = chm.dijkstra(0, query, Label());
 
             auto chlr_path = q.get_arc_path();
             unsigned chlr_len = path_length(chlr_path);
@@ -370,9 +370,9 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
                 wrong++;
 
                 #ifdef DEBUG
-                auto [dij, dij_path] = chm.dijkstra(0, query, Label(3));
+                auto [dij, dij_path] = chm.dijkstra(0, query, Label());
                 CHLRQuery q(chlr_changed);
-                q.set(0, query, Label(3));
+                q.set(0, query, Label());
                 q.run();
                 auto chlr_path = q.get_arc_path();
                 #endif
