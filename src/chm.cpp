@@ -204,41 +204,50 @@ void CHMGraph::maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n) {
 
     assert(l_n == l_o);
 
-    get(e_o).weight = w_n;
-    if (w_n > w_o){
-        auto [k, mid_node] = calculate_weight(get(e_o));
-
-        if(k < w_n) {
-            add_or_reduce_arc(CHMArc{get(e_o).from, mid_node, get(e_o).to, k, l_o});
-        }
-    }
-
-    queue.push(get(e_o), w_n > w_o, *this);
+    //if(w_n > w_o) {
+    //    queue.push(get(e_o), w_n > w_o, *this);
+    //    get(e_o).weight = w_n;
+    //} else {
+        get(e_o).weight = w_n;
+        queue.push(get(e_o), w_n > w_o, *this);
+    //}
 
     while(!queue.empty()) {
         auto [increment, e] = queue.pop();
+        if(e.weight >= inf_weight) continue;
+
         auto partners = Ne(e);
         std::sort(partners.begin(), partners.end(), [](const CHMArc& a, const CHMArc& b) {
             return a.weight < b.weight;
         });
 
+        
         for (auto e_ : partners) {
-            auto e__ = Np(e_, e);
-            if (increment && e__.weight < inf_weight) {
-                auto [k, mid_node] = calculate_weight(e__);
+            if(e_.weight >= inf_weight) continue;
 
-                if (e__.weight <= k && !queue.contains(e__, true)) {
-                    auto& e__ref = e__.ref(*this);
-                    e__ref.weight = k;
-                    e__ref.mid_node = mid_node;
-                    add_or_reduce_arc(e__ref);
+            if (increment) {
+                auto e__ = Np(e_, e, true);
+                auto& e__ref = e__.ref(*this);
+                if (e.to == e_.from)
+                    e__ref.weight = cal_sc_weight(e.from, e.to, e_.to);
+                else
+                    e__ref.weight = cal_sc_weight(e_.from, e_.to, e.to);
+
+
+                //if (e__.weight == e.weight + e_.weight) {
+                    
                     queue.push(e__ref, true, *this);
-                }
-            }
+                //}
 
-            if (!increment) {
-                
-                if(e.weight >= inf_weight || e_.weight >= inf_weight) continue;
+                //auto [k, mid_node] = calculate_weight(e__);
+                //if (e__.weight < k) {
+                //    auto& e__ref = e__.ref(*this);
+                //    e__ref.weight = k;
+                //    e__ref.mid_node = mid_node;
+                //}
+            } else { // decrement
+                auto e__ = Np(e_, e);
+                if (e__.weight >= inf_weight) continue;
                 if (e__.weight >= e.weight + e_.weight) {
                     add_arc(e__, true);
                     auto& e__ref = e__.ref(*this);
@@ -412,7 +421,7 @@ std::vector<CHMArc> CHMGraph::Ne(CHMArc arc) {
     return result;
 }
 
-CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2) {
+CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2, bool with_mid_node_check) {
     if (e1.to != e2.from) {
         std::swap(e1, e2);
     }
@@ -421,7 +430,7 @@ CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2) {
 
     for (CHMArc& arc : nodes[e1.from].arcs) {
         if(arc.to != e2.to) continue;
-        //if(arc.mid_node != e1.to) continue;
+        if(with_mid_node_check && arc.mid_node != e1.to) continue;
         if(arc.label != e1.label.unite(e2.label)) continue;
 
         unsigned from_rank = nodes[e1.from].rank;
@@ -583,4 +592,28 @@ std::vector<CHMArc> CHMGraph::SCSp(CHMArc e) {
     }
 
     return result;
+}
+
+
+unsigned CHMGraph::cal_sc_weight(unsigned from, unsigned mid, unsigned to) {
+    unsigned w_e1 = inf_weight;
+    unsigned w_e2 = inf_weight;
+
+    for (const auto& arc : nodes[from].arcs) {
+        if (arc.to == mid) {
+            if(arc.weight < w_e1) {
+                w_e1 = arc.weight;
+            }
+        }
+    }
+
+    for (const auto& arc : nodes[mid].arcs) {
+        if (arc.to == to) {
+            if(arc.weight < w_e2) {
+                w_e2 = arc.weight;
+            }
+        }
+    }
+
+    return w_e1 + w_e2;
 }

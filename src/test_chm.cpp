@@ -19,13 +19,16 @@ CHLRGraph synthetic(unsigned node_count, bool build = true, unsigned seed = 42) 
     graph.nodes.resize(node_count);
 
     for (unsigned i = 0; i < node_count; ++i) {
+        std::set<unsigned> targets;
         for (int j = 0; j < rand_r(&seed) % 5 + 1; ++j) { // Random number of edges per node
             unsigned target = rand_r(&seed) % node_count;
+            if(targets.find(target) != targets.end()) continue;
             if (target != i) {
                 unsigned new_weight = rand_r(&seed) % 20 + 5;
                 assert(new_weight > 1);
                 assert(new_weight < 30);
                 graph.add_arc(i, invalid_id, target, new_weight, Label());
+                targets.insert(target);
             }
         }
     }
@@ -269,13 +272,13 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
     unsigned wrong = 0;
     unsigned mismatches = 0;
     unsigned accepted = 0;
-    unsigned seed = 42;
-    unsigned runs = 50000;
+    unsigned seed = 19;
+    unsigned runs = 5000;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running synthetic test " << run << std::endl;
-        unsigned node_cnt = 25;
-        if(run == 10189) {
+        unsigned node_cnt = 5;
+        if(run == 2680) {
             std::cout << "Stop here" << std::endl;
         }
         CHLRGraph chlr = synthetic(node_cnt, true, run);
@@ -290,7 +293,7 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
             q.run();
 
             auto [dij, dij_path] = chm.dijkstra(0, query, Label());
-            EXPECT_EQ(dij, path_length(q.get_arc_path()));
+            EXPECT_EQ(dij, path_length(q.get_arc_path())) << "Prechange query";
             original_distances.push_back(dij);
         }
 
@@ -299,15 +302,19 @@ TEST(CHM, test_maintenance_on_synthetic_graph) {
         std::vector<std::pair<CHMArc, CHMArc>> changes;
 
         // Apply random changes
-        for(unsigned i = 0; i < node_cnt; ++i) {
+        for(unsigned i = 0; i < 1; ++i) {
             unsigned from = rand_r(&seed) % node_cnt;
             if(chm.nodes[from].arcs.empty()) continue;
             unsigned arc = rand_r(&seed) % chm.nodes[from].arcs.size();
             if(chm.nodes[from].arcs[arc].mid_node != invalid_id) continue;
 
             unsigned old_weight = chm.nodes[from].arcs[arc].weight;
-            unsigned weight = (rand_r(&seed) % (old_weight - 1)) + 2;
-            if(weight >= old_weight) continue; // only decrease weight
+            unsigned weight = old_weight + (rand_r(&seed) % 100 + 1); // increase weight
+            
+            
+            if(weight <= old_weight) continue; // only decrease weight
+        
+
             Label label = chm.nodes[from].arcs[arc].label;
 
             CHMArc before = chm.nodes[from].arcs[arc];

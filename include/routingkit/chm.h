@@ -85,6 +85,7 @@ public:
     }
 
     std::pair<unsigned, unsigned> calculate_weight(CHMArc arc);
+    unsigned cal_sc_weight(unsigned from, unsigned mid, unsigned to);
     void keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue& queue);
     void maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n);
     void maintenance_optimized(CHMArcPos e_o, unsigned w_n, Label l_n);
@@ -94,7 +95,7 @@ public:
     std::vector<std::pair<CHMArc, CHMArc>> Nm(CHMArc child);
     std::vector<CHMArc> SCSp(CHMArc e);
     std::vector<CHMArc> Ne(CHMArc arc);
-    CHMArc Np(CHMArc e1, CHMArc e2);
+    CHMArc Np(CHMArc e1, CHMArc e2, bool with_mid_node_check = false);
 
     void add_dominant_shortcut(CHMArc arc, CHMArc shortcut);
     bool has_dominant_shortcut(CHMArc arc, CHMArc shortcut);

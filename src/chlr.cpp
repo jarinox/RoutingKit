@@ -78,16 +78,16 @@ void CHLR::build(bool print_progress) {
         node.sort_arcs_for_weight();
         for (auto &in_arc : graph.nodes[node_id].in_arcs) {
             if (in_arc.other_node == node_id) continue;  // Skip self-loops
-            if (has_been_contracted.is_set(in_arc.other_node))
-                continue;  // Ensure rank(other_node) > rank(node_id)
+            if (has_been_contracted.is_set(in_arc.other_node)) assert(false);
+                //continue;  // Ensure rank(other_node) > rank(node_id)
 
             DijkstraLR dijkstra(graph, in_arc.other_node);
 
             for (auto &out_arc : graph.nodes[node_id].out_arcs) {
                 if (in_arc.other_node == out_arc.other_node)
                     continue;  // Skip self-loops
-                if (has_been_contracted.is_set(out_arc.other_node))
-                    continue;  // Ensure rank(other_node) > rank(node_id)
+                if (has_been_contracted.is_set(out_arc.other_node)) assert(false);
+                    //continue;  // Ensure rank(other_node) > rank(node_id)
                 
 
                 Label newLabel = in_arc.label.unite(out_arc.label);
@@ -101,10 +101,14 @@ void CHLR::build(bool print_progress) {
                         return (node_id != bypass_node) && (graph.nodes[bypass_node].rank > graph.nodes[node_id].rank);
                     });
 
+                
+                contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                
+
                 if (shortcut_weight < witness_weight) {
-                    auto need_add = graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                    //auto need_add = graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
                     //if(need_add) // disabled in order to enable the usage of DCH Maintenance algorithm
-                    contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
 
                 }
             }
@@ -307,7 +311,7 @@ void CHLRQuery::extract_directional_graphs() {
             }
 
             bool skip_arc = false;
-            for(auto other_arc : graph.nodes[i].out_arcs) {
+            /*for(auto other_arc : graph.nodes[i].out_arcs) {
                 if(other_arc.mid_node == arc.mid_node && other_arc.other_node == arc.other_node && other_arc.label == arc.label) {
                     continue;
                 }
@@ -324,7 +328,7 @@ void CHLRQuery::extract_directional_graphs() {
 
             if(skip_arc) {
                 continue; // skip dominated arcs
-            }
+            }*/
 
             if (from_rank < to_rank) {
                 forward.nodes[i].out_arcs.push_back(arc);
@@ -457,7 +461,7 @@ void CHLRQuery::settle(
     unsigned current_distance = p.key;
     assert(current_distance == distance[current_node]);
 
-    was_pushed.set(current_node);
+    //was_pushed.set(current_node);
 
     if (other_was_pushed.is_set(current_node)) {
         if(current_distance + other_distance[current_node] < best_distance) {
@@ -472,6 +476,7 @@ void CHLRQuery::settle(
         if (arc.weight >= inf_weight) continue;
 
         unsigned next_node = arc.other_node;
+        was_pushed.set(next_node);
         unsigned new_distance = current_distance + arc.weight;
 
         if (new_distance < distance[next_node]) {
