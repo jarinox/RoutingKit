@@ -19,6 +19,8 @@ public:
     CHMArc& ref(CHMArc arc);
 
     std::vector<std::pair<CHMArc, CHMArc>> SCPPlus(CHMArc p1);
+    std::vector<std::pair<CHMArc, CHMArc>> SCPMinus(CHMArc child);
+    unsigned compute_weight(CHMArc arc);
 
     void DCHPlus(CHMArcPos e_o_pos, unsigned w_n);
     void DCHMinus(CHMArcPos e_o_pos, unsigned w_n);

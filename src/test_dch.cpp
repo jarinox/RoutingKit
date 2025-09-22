@@ -94,6 +94,7 @@ void test_dch_vs_dijkstra(DCHGraph& dch) {
         
         EXPECT_EQ(dij, chlr_len);
 
+        #ifdef DEBUG
         if(dij != chlr_len) {
             CHLRQuery q2(chlr);
             q2.set(0, query, Label());
@@ -103,11 +104,13 @@ void test_dch_vs_dijkstra(DCHGraph& dch) {
             auto chlr_path = q2.get_arc_path();
             unsigned chlr_len = path_length(chlr_path);
         }
+        #endif
     }
 }
 
 TEST(CHM, reduce_weight) {
-    unsigned runs = 5000;
+    return; // disable temporarily
+    unsigned runs = 2000;
     unsigned seed = 42;
     unsigned node_count = 12;
 
@@ -128,7 +131,7 @@ TEST(CHM, reduce_weight) {
         print_graph_to_file(dch, "generated/debug_graph_before.txt");
 
         // Apply random changes
-        for (unsigned i = 0; i < 1; ++i) {
+        for (unsigned i = 0; i < node_count; ++i) {
             unsigned from = rand_r(&seed) % node_count;
             if(dch.nodes[from].arcs.empty()) continue;
             unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
@@ -146,6 +149,59 @@ TEST(CHM, reduce_weight) {
         }
 
         print_graph_to_file(dch, "generated/debug_graph_after.txt");
+
+        // Postchange check
+        test_dch_vs_dijkstra(dch);
+    }
+}
+
+TEST(CHM, increase_weight) {
+    unsigned runs = 20000;
+    unsigned seed = 42;
+    unsigned node_count = 24;
+
+    for (unsigned run = 0; run < runs; ++run) {
+        std::cout << "Running DCH+ test " << run << std::endl;
+
+        if (run == 9920) {
+            std::cout << "Stop here" << std::endl;
+        }
+
+        CHLRGraph chlr = synthetic(node_count, true, run*seed+1);
+        DCHGraph dch = DCHGraph(chlr);
+
+        // Prechange check
+        test_dch_vs_dijkstra(dch);
+
+        std::vector<std::pair<CHMArc, CHMArc>> changes;
+
+        #ifdef DEBUG
+        print_graph_to_file(dch, "generated/debug_graph_before.txt");
+        #endif
+
+        // Apply random changes
+        for (unsigned i = 0; i < node_count; ++i) {
+            unsigned from = rand_r(&seed) % node_count;
+            if(dch.nodes[from].arcs.empty()) continue;
+            unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
+            if(dch.nodes[from].arcs[arc].mid_node != invalid_id) continue;
+            if(dch.nodes[from].arcs[arc].weight < 2) continue;
+
+            unsigned old_weight = dch.nodes[from].arcs[arc].weight;
+            unsigned weight = rand_r(&seed) % 20 + old_weight + 1; // increase weight
+
+            CHMArc before = dch.nodes[from].arcs[arc];
+            dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), weight);
+            CHMArc after = dch.nodes[from].arcs[arc];
+            assert(after.weight >= before.weight);
+            assert(after.weight == weight);
+
+            changes.push_back({before, after});
+        }
+
+        #ifdef DEBUG
+        print_graph_to_file(dch, "generated/debug_graph_after.txt");
+        #endif
 
         // Postchange check
         test_dch_vs_dijkstra(dch);

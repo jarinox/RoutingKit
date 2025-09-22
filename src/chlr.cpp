@@ -96,21 +96,13 @@ void CHLR::build(bool print_progress) {
 
                 unsigned shortcut_weight = in_arc.weight + out_arc.weight;
 
-                unsigned witness_weight = dijkstra.witness_search(
-                    out_arc.other_node, R, [&](unsigned bypass_node) {
-                        return (node_id != bypass_node) && (graph.nodes[bypass_node].rank > graph.nodes[node_id].rank);
-                    });
+                //unsigned witness_weight = dijkstra.witness_search(
+                //    out_arc.other_node, R, [&](unsigned bypass_node) {
+                //        return (node_id != bypass_node) && (graph.nodes[bypass_node].rank > graph.nodes[node_id].rank);
+                //    });
 
-                
-                contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                
-
-                if (shortcut_weight < witness_weight) {
-                    //auto need_add = graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                    //if(need_add) // disabled in order to enable the usage of DCH Maintenance algorithm
-
-                }
+                contraction_graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
             }
         }
 
@@ -254,25 +246,16 @@ CHLRArc& CHLRGraph::get_reverse_arc(CHLRArc &arc, unsigned start_node) {
 
 bool CHLRGraph::add_or_reduce_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
     for (auto &arc : nodes[from].out_arcs) {
-        if (arc.other_node == to) {
+        if (arc.other_node == to && arc.mid_node == mid_node && arc.label == label) {
             if (arc.weight > weight) {
-                if(label.is_subset_of(arc.label)) {
-                    // New arc is shorter and has fewer restrictions, replace existing shortcut
-                    auto& reversed_arc = get_reverse_arc(arc, from);
+                auto& reversed_arc = get_reverse_arc(arc, from);
 
-                    arc.weight = weight;
-                    arc.label = label;
+                arc.weight = weight;
+                reversed_arc.weight = weight;
 
-                    reversed_arc.weight = weight;
-                    reversed_arc.label = label;
-                    return true;
-                }
-                // new arc is shorter but has more restrictions, continue search or add new arc
+                return true;
             } else {
-                if(arc.label.is_subset_of(label)) {
-                    // Existing arc is shorter and has fewer restrictions, do not add new shortcut
-                    return false;
-                }
+                return false;
             }
         }
     }

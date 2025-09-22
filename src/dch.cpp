@@ -195,6 +195,24 @@ std::vector<std::pair<CHMArc, CHMArc>> DCHGraph::SCPPlus(CHMArc p1) {
     return pairs;
 }
 
+/// Computes the downward shortcut pairs <p1, p2> of child as defined by Zhang and Yu (2022)
+std::vector<std::pair<CHMArc, CHMArc>> DCHGraph::SCPMinus(CHMArc child) {
+    std::vector<std::pair<CHMArc, CHMArc>> pairs;
+
+    for (CHMArc p1 : nodes[child.from].arcs) {
+        if (nodes[child.from].rank < nodes[p1.to].rank) continue; // ensure p1 is downward
+        if (child.mid_node != p1.to) continue; // ensure p1 is a part of the child
+
+        for (CHMArc p2 : nodes[p1.to].arcs) {
+            if (p2.to != child.to) continue;
+            if (nodes[p2.to].rank < nodes[p1.to].rank) continue; // ensure p2 is upward
+
+            pairs.push_back({p1, p2});
+        }
+    }
+
+    return pairs;
+}
 
 /// Decrease the weight of an original arc in the Contraction Hierarchy. Maintains a valid CH index.
 void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
@@ -221,4 +239,53 @@ void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
             }
         }
     }
+}
+
+
+/// Increase the weight of an original arc in the Contraction Hierarchy. Maintains a valid CH index.
+void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
+    CHMArc& e_o = get(e_o_pos);
+    unsigned w_o = e_o.weight;
+
+    assert(w_o < w_n && "DCHPlus can only be used to increase weights");
+
+    DCHQueue queue(nodes.size());
+
+    queue.push(e_o, *this);
+    e_o.weight = w_n;
+
+    while(!queue.empty()) {
+        CHMArc arc = queue.pop();
+
+        for(std::pair<CHMArc, CHMArc> scp : SCPPlus(arc)) {
+            CHMArc p2 = scp.first;
+            CHMArc child = scp.second;
+
+            if (arc.weight + p2.weight == child.weight) {
+                queue.push(child, *this);
+            }
+        }
+
+        ref(arc).weight = compute_weight(arc);
+    }
+}
+
+
+unsigned DCHGraph::compute_weight(CHMArc arc) {
+    unsigned k = inf_weight;
+
+    if(arc.mid_node == invalid_id) {
+        return ref(arc).weight;
+    }
+
+    for(std::pair<CHMArc, CHMArc> scp : SCPMinus(arc)) {
+        CHMArc p1 = scp.first;
+        CHMArc p2 = scp.second;
+
+        if (p1.weight + p2.weight < k) {
+            k = p1.weight + p2.weight;
+        }
+    }
+
+    return k;
 }
