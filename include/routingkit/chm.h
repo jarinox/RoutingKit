@@ -34,6 +34,8 @@ public:
     Label label;
     unsigned cnt;
 
+    bool in_graph = false;
+
     CHMArc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label)
         : from(from), mid_node(mid_node), to(to), arc_index(invalid_id), weight(weight), label(label), cnt(0) {}
 
