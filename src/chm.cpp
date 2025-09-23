@@ -98,7 +98,7 @@ std::pair<unsigned, unsigned> CHMGraph::calculate_weight(CHMArc arc) {
     unsigned mid_node = arc.mid_node;
 
     if(!arc.is_shortcut() && arc.weight < inf_weight) {
-        k = arc.weight;
+        return {arc.weight, arc.mid_node};
     }
 
     auto nm = Nm(arc);
@@ -276,29 +276,19 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
     MinRankQueue queue(nodes.size() * 100 + 64);
 
     if (l_n != l_o) {
-        get(e_o).weight = inf_weight;
-        CHMArc e_n = CHMArc{get(e_o).from, get(e_o).mid_node, get(e_o).to, w_n, l_n};
+        CHMArc& e = get(e_o);
+        e.weight = inf_weight;
+        queue.push(e, w_n > w_o, *this); // invalidate or update old shortcuts
+
+        CHMArc e_n = get(e_o);
+        e_n.weight = w_n;
+        e_n.label = l_n;
         add_arc(e_n);
 
-        auto [k, mid_node] = calculate_weight(get(e_o));
-        get(e_o).weight = k;
-
-        if (get(e_o).weight > w_o) {
-            queue.push(get(e_o), true, *this);
-            keep_shortcut_dominance(get(e_o), true, queue);
-        }
-
-        if (w(e_n.from, e_n.to, e_n.label) > w_n) {
-            queue.push(e_n, false, *this);
-            keep_shortcut_dominance(e_n, false, queue);
-        }
+        queue.push(e_n, w_n > w_o, *this); // generate new shortcuts
     } else {
         get(e_o).weight = w_n;
-        //auto [k, mid_node] = calculate_weight(get(e_o));
-        //get(e_o).weight = k;
-
-        queue.push(get(e_o), get(e_o).weight > w_o, *this);
-        keep_shortcut_dominance(get(e_o), get(e_o).weight > w_o, queue);
+        queue.push(e, w_n > w_o, *this);
     }
 
     while(!queue.empty()) {
@@ -312,8 +302,9 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
                 auto [k, mid_node] = calculate_weight(e__);
 
                 if (e__.weight <= k && !queue.contains(e__, true)) {
+                    add_arc(e__, true);  // ensure arc exists in graph as it might have been created by Np but not added to graph
+
                     auto& e__ref = e__.ref(*this);
-                    e__ref.weight = k;
                     e__ref.mid_node = mid_node;
                     add_arc(e__ref, true);
                     queue.push(e__ref, true, *this);
@@ -428,16 +419,16 @@ CHMArc CHMGraph::Np(CHMArc e1, CHMArc e2, bool with_mid_node_check) {
 
     assert(e1.to == e2.from);
 
-    for (CHMArc& arc : nodes[e1.from].arcs) {
+    unsigned from_rank = nodes[e1.from].rank;
+    unsigned to_rank = nodes[e2.to].rank;
+    unsigned mid_rank = nodes[e1.to].rank;
+
+    assert(from_rank > mid_rank && to_rank > mid_rank);
+
+    for (CHMArc arc : nodes[e1.from].arcs) {
         if(arc.to != e2.to) continue;
         if(with_mid_node_check && arc.mid_node != e1.to) continue;
         if(arc.label != e1.label.unite(e2.label)) continue;
-
-        unsigned from_rank = nodes[e1.from].rank;
-        unsigned to_rank = nodes[e2.to].rank;
-        unsigned mid_rank = nodes[e1.to].rank;
-
-        if(from_rank <= mid_rank || to_rank <= mid_rank) continue;
 
         return arc;
     }
