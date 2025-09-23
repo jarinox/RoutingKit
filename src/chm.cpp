@@ -288,7 +288,7 @@ void CHMGraph::maintenance(CHMArcPos e_o, unsigned w_n, Label l_n) {
         queue.push(e_n, w_n > w_o, *this); // generate new shortcuts
     } else {
         get(e_o).weight = w_n;
-        queue.push(e, w_n > w_o, *this);
+        queue.push(get(e_o), w_n > w_o, *this);
     }
 
     while(!queue.empty()) {

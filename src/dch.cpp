@@ -55,7 +55,8 @@ CHMArc& DCHGraph::ref(CHMArc arc) {
 }
 
 void DCHQueue::push(CHMArc arc, DCHGraph& graph) {
-    unsigned arc_priority = std::min(graph.nodes[arc.from].rank, graph.nodes[arc.to].rank);
+    unsigned arc_rank = std::min(graph.nodes[arc.from].rank, graph.nodes[arc.to].rank);
+    unsigned arc_priority = arc_rank*100+__builtin_popcount(arc.label.get_label());
 
     if(queue.contains_id(arc_priority)) {
         if(is_in_queue.find(arc) != is_in_queue.end()) {
@@ -221,7 +222,7 @@ void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
 
     assert(w_o > w_n && "DCHMinus can only be used to decrease weights");
 
-    DCHQueue queue(nodes.size());
+    DCHQueue queue(nodes.size()*100+64);
 
     e_o.weight = w_n;
     queue.push(e_o, *this);
@@ -249,7 +250,7 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
 
     assert(w_o < w_n && "DCHPlus can only be used to increase weights");
 
-    DCHQueue queue(nodes.size());
+    DCHQueue queue(nodes.size()*100+64);
 
     queue.push(e_o, *this);
     e_o.weight = w_n;

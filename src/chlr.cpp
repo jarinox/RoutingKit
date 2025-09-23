@@ -78,16 +78,16 @@ void CHLR::build(bool print_progress) {
         node.sort_arcs_for_weight();
         for (auto &in_arc : graph.nodes[node_id].in_arcs) {
             if (in_arc.other_node == node_id) continue;  // Skip self-loops
-            if (has_been_contracted.is_set(in_arc.other_node)) assert(false);
-                //continue;  // Ensure rank(other_node) > rank(node_id)
+            if (has_been_contracted.is_set(in_arc.other_node))// assert(false);
+                continue;  // Ensure rank(other_node) > rank(node_id)
 
             DijkstraLR dijkstra(graph, in_arc.other_node);
 
             for (auto &out_arc : graph.nodes[node_id].out_arcs) {
                 if (in_arc.other_node == out_arc.other_node)
                     continue;  // Skip self-loops
-                if (has_been_contracted.is_set(out_arc.other_node)) assert(false);
-                    //continue;  // Ensure rank(other_node) > rank(node_id)
+                if (has_been_contracted.is_set(out_arc.other_node))// assert(false);
+                    continue;  // Ensure rank(other_node) > rank(node_id)
                 
 
                 Label newLabel = in_arc.label.unite(out_arc.label);

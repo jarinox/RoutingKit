@@ -11,7 +11,7 @@ def visualize_graph(file_path):
     - First line: "N nodes" where N is the number of nodes.
     - N lines with node ranks: "Node i rank r"
     - A line "Edges:"
-    - Subsequent lines: "u -> v (weight,mid_node)" for each edge.
+    - Subsequent lines: "u -> v (weight,mid_node,label)" for each edge.
 
     Nodes are displayed in a circular layout. Edges are colored based on whether
     they are shortcuts (mid_node != 4294967295).
@@ -55,9 +55,10 @@ def visualize_graph(file_path):
         line = line.strip()
         if not line:
             continue
-        match = re.match(r'(\d+)\s*->\s*(\d+)\s*\((\d+),(\d+)\)', line)
+        match = re.match(r'(\d+)\s*->\s*(\d+)\s*\((\d+),(\d+),"(.*)"\)', line)
         if match:
-            u, v, weight, mid_node = map(int, match.groups())
+            u, v, weight, mid_node = map(int, match.groups()[:4])
+            label = match.group(5)
             
             edge_type = 'normal'
             if weight == 2147483647:
@@ -65,7 +66,7 @@ def visualize_graph(file_path):
             elif mid_node != 4294967295:
                 edge_type = 'shortcut'
             
-            G.add_edge(u, v, weight=weight, mid_node=mid_node, type=edge_type)
+            G.add_edge(u, v, weight=weight, mid_node=mid_node, type=edge_type, label=label)
         else:
             print(f"Warning: Could not parse edge from line: '{line}'")
 
@@ -86,15 +87,20 @@ def visualize_graph(file_path):
         connectionstyle = f'arc3,rad={rad}'
         edge_type = data.get('type', 'normal')
         weight = data.get('weight')
+        label = data.get('label')
 
         if edge_type == 'normal':
             nx.draw_networkx_edges(G, pos, edgelist=[(u, v, key)], connectionstyle=connectionstyle, edge_color='black', width=1.0, alpha=0.6, arrows=True, arrowsize=30)
             if weight is not None and weight != 2147483647:
                 nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): weight}, font_color='darkgreen', font_size=8, label_pos=0.3, bbox=dict(facecolor='white', alpha=0, edgecolor='none'), connectionstyle=connectionstyle)
+            if label is not None:
+                nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): label}, font_color='blue', font_size=8, label_pos=0.7, bbox=dict(facecolor='white', alpha=0, edgecolor='none'), connectionstyle=connectionstyle)
         elif edge_type == 'shortcut':
             nx.draw_networkx_edges(G, pos, edgelist=[(u, v, key)], connectionstyle=connectionstyle, edge_color='red', width=1.5, style='dashed', alpha=0.8, arrows=True, arrowsize=30)
             if weight is not None and weight != 2147483647:
                 nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): weight}, font_color='darkred', font_size=8, label_pos=0.3, bbox=dict(facecolor='white', alpha=0, edgecolor='none'), connectionstyle=connectionstyle)
+            if label is not None:
+                nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): label}, font_color='purple', font_size=8, label_pos=0.7, bbox=dict(facecolor='white', alpha=0, edgecolor='none'), connectionstyle=connectionstyle)
         elif edge_type == 'inf_weight':
             nx.draw_networkx_edges(G, pos, edgelist=[(u, v, key)], connectionstyle=connectionstyle, edge_color='gray', width=0.5, alpha=0.2, arrows=False)
 

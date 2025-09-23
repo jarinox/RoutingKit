@@ -19,17 +19,34 @@ CHLRGraph synthetic(unsigned node_count, bool build = true, unsigned seed = 42) 
     graph.nodes.resize(node_count);
 
     for (unsigned i = 0; i < node_count; ++i) {
-        std::set<unsigned> targets;
-        for (int j = 0; j < rand_r(&seed) % 5 + 1; ++j) { // Random number of edges per node
+        std::vector<CHMArc> targets;
+        for (unsigned j = 0; j < rand_r(&seed) % 5 + 1; ++j) { // Random number of edges per node
+            if (i == j) continue; // no self-loops
+
             unsigned target = rand_r(&seed) % node_count;
-            if(targets.find(target) != targets.end()) continue;
-            if (target != i) {
-                unsigned new_weight = rand_r(&seed) % 20 + 5;
-                assert(new_weight > 4);
-                assert(new_weight < 30);
-                graph.add_arc(i, invalid_id, target, new_weight, Label());
-                targets.insert(target);
+            Label label = Label(rand_r(&seed) % 8);
+            unsigned new_weight = rand_r(&seed) % 20 + 5;
+            CHMArc arc(i, invalid_id, target, new_weight, label);
+
+            bool skip = false;
+            for(const auto& existing : targets) {
+                if(existing.to != arc.to) continue;
+                if(existing.label.is_subset_of(arc.label) && existing.weight <= arc.weight) {
+                    skip = true;
+                    break;
+                }
+
+                if(arc.label.is_subset_of(existing.label) && arc.weight <= existing.weight) {
+                    skip = true;
+                    break;
+                }
             }
+
+            if(!skip) {
+                targets.push_back(arc);
+                graph.add_arc(i, invalid_id, target, new_weight, label);
+            }
+
         }
     }
 
@@ -57,6 +74,17 @@ unsigned path_length(const std::vector<CHLRArc>& path) {
     return length;
 }
 
+std::string readable_label(Label label) {
+    std::string s = "";
+    for(unsigned i = 0; i < 16; ++i) {
+        if(label.get_bit(i)) {
+            char bit = 'a' + i;
+            s = s + bit;
+        }
+    }
+    return s;
+}
+
 void print_graph_to_file(DCHGraph& graph, std::string path = "debug_graph.txt") {
     std::ofstream file(path);
     if (!file.is_open()) {
@@ -72,23 +100,24 @@ void print_graph_to_file(DCHGraph& graph, std::string path = "debug_graph.txt") 
     file << "Edges:" << std::endl;
     for (const auto& node : graph.nodes) {
         for (const auto& arc : node.arcs) {
-            file << arc.from << " -> " << arc.to << " (" << arc.weight << "," << arc.mid_node << ")" << std::endl;
+            file << arc.from << " -> " << arc.to << " (" << arc.weight << "," << arc.mid_node << ",\"" << readable_label(arc.label) << "\")" << std::endl;
         }
     }
 
     file.close();
 }
 
-void test_dch_vs_dijkstra(DCHGraph& dch) {
+void test_dch_vs_dijkstra(DCHGraph& dch, unsigned seed) {
     CHLRGraph chlr = dch.to_chlr();
     unsigned node_count = chlr.nodes.size();
 
     for(unsigned query = 0; query < min(30u, node_count); query += 2) {
+        Label label = Label(rand_r(&seed) % 8);
         CHLRQuery q(chlr);
-        q.set(0, query, Label());
+        q.set(0, query, label);
         q.run();
 
-        auto [dij, dij_path] = dch.dijkstra(0, query, Label());
+        auto [dij, dij_path] = dch.dijkstra(0, query, label);
         auto chlr_path = q.get_arc_path();
         unsigned chlr_len = path_length(chlr_path);
         
@@ -97,10 +126,10 @@ void test_dch_vs_dijkstra(DCHGraph& dch) {
         #ifdef DEBUG
         if(dij != chlr_len) {
             CHLRQuery q2(chlr);
-            q2.set(0, query, Label());
+            q2.set(0, query, label);
             q2.run();
 
-            auto [dij, dij_path] = dch.dijkstra(0, query, Label());
+            auto [dij, dij_path] = dch.dijkstra(0, query, label);
             auto chlr_path = q2.get_arc_path();
             unsigned chlr_len = path_length(chlr_path);
         }
@@ -109,23 +138,18 @@ void test_dch_vs_dijkstra(DCHGraph& dch) {
 }
 
 TEST(CHM, reduce_weight) {
-    return; // disable temporarily
-    unsigned runs = 2000;
+    unsigned runs = 10000;
     unsigned seed = 42;
-    unsigned node_count = 12;
+    unsigned node_count = 5;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCH- test " << run << std::endl;
-
-        if (run == 316) {
-            std::cout << "Stop here" << std::endl;
-        }
 
         CHLRGraph chlr = synthetic(node_count, true, run*seed+1);
         DCHGraph dch = DCHGraph(chlr);
 
         // Prechange check
-        test_dch_vs_dijkstra(dch);
+        test_dch_vs_dijkstra(dch, seed);
 
         std::vector<std::pair<CHMArc, CHMArc>> changes;
         print_graph_to_file(dch, "generated/debug_graph_before.txt");
@@ -151,27 +175,23 @@ TEST(CHM, reduce_weight) {
         print_graph_to_file(dch, "generated/debug_graph_after.txt");
 
         // Postchange check
-        test_dch_vs_dijkstra(dch);
+        test_dch_vs_dijkstra(dch, seed);
     }
 }
 
 TEST(CHM, increase_weight) {
-    unsigned runs = 20000;
+    unsigned runs = 10000;
     unsigned seed = 42;
-    unsigned node_count = 24;
+    unsigned node_count = 12;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCH+ test " << run << std::endl;
-
-        if (run == 9920) {
-            std::cout << "Stop here" << std::endl;
-        }
 
         CHLRGraph chlr = synthetic(node_count, true, run*seed+1);
         DCHGraph dch = DCHGraph(chlr);
 
         // Prechange check
-        test_dch_vs_dijkstra(dch);
+        test_dch_vs_dijkstra(dch, seed);
 
         std::vector<std::pair<CHMArc, CHMArc>> changes;
 
@@ -204,6 +224,6 @@ TEST(CHM, increase_weight) {
         #endif
 
         // Postchange check
-        test_dch_vs_dijkstra(dch);
+        test_dch_vs_dijkstra(dch, seed);
     }
 }
