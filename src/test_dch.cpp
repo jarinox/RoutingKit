@@ -20,10 +20,10 @@ CHLRGraph synthetic(unsigned node_count, bool build = true, unsigned seed = 42) 
 
     for (unsigned i = 0; i < node_count; ++i) {
         std::vector<CHMArc> targets;
-        for (unsigned j = 0; j < rand_r(&seed) % 5 + 1; ++j) { // Random number of edges per node
-            if (i == j) continue; // no self-loops
-
+        for (unsigned j = 0; j < rand_r(&seed) % 7 + 1; ++j) { // Random number of edges per node
             unsigned target = rand_r(&seed) % node_count;
+            if (target == i) continue; // No self-loops
+
             Label label = Label(rand_r(&seed) % 8);
             unsigned new_weight = rand_r(&seed) % 20 + 5;
             CHMArc arc(i, invalid_id, target, new_weight, label);
@@ -47,6 +47,12 @@ CHLRGraph synthetic(unsigned node_count, bool build = true, unsigned seed = 42) 
                 graph.add_arc(i, invalid_id, target, new_weight, label);
             }
 
+        }
+
+        if(targets.size() > 1) {
+            std::sort(targets.begin(), targets.end(), [](const CHMArc& a, const CHMArc& b) {
+                return a.weight != b.weight ? a.weight < b.weight : !a.label.is_superset_of(b.label);
+            });
         }
     }
 

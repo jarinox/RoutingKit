@@ -48,11 +48,11 @@ class CHLRNode {
     void sort_arcs_for_weight() {
         std::sort(in_arcs.begin(), in_arcs.end(),
                   [](const CHLRArc& a, const CHLRArc& b) {
-                      return a.weight != b.weight ? a.weight < b.weight : !a.label.is_superset_of(b.label);
+                      return a.weight != b.weight ? a.weight < b.weight : a.label.get_label() < b.label.get_label();
                   });
         std::sort(out_arcs.begin(), out_arcs.end(),
                   [](const CHLRArc& a, const CHLRArc& b) {
-                      return a.weight != b.weight ? a.weight < b.weight : !a.label.is_superset_of(b.label);
+                      return a.weight != b.weight ? a.weight < b.weight : a.label.get_label() < b.label.get_label();
                   });
     }
 };

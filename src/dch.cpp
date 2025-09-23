@@ -188,6 +188,7 @@ std::vector<std::pair<CHMArc, CHMArc>> DCHGraph::SCPPlus(CHMArc p1) {
             if (child.to != _p2.to) continue;         // correct direction
             if (child.mid_node != _p1.to) continue;   // correct mid node
             if (child.weight >= inf_weight) continue; // handle infinite weight
+            if (child.label != _p1.label.unite(_p2.label)) continue; // correct label
 
             pairs.push_back({p2, child});
         }
@@ -207,6 +208,7 @@ std::vector<std::pair<CHMArc, CHMArc>> DCHGraph::SCPMinus(CHMArc child) {
         for (CHMArc p2 : nodes[p1.to].arcs) {
             if (p2.to != child.to) continue;
             if (nodes[p2.to].rank < nodes[p1.to].rank) continue; // ensure p2 is upward
+            if (p1.label.unite(p2.label) != child.label) continue;
 
             pairs.push_back({p1, p2});
         }
