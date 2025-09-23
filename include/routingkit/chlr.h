@@ -26,7 +26,7 @@ class CHLRArc {
 
     bool is_shortcut() const { return mid_node != invalid_id; }
     bool dominates(const CHLRArc& other) const {
-        return label.is_subset_of(other.label) && weight <= other.weight;
+        return label.is_subset_of(other.label) && weight <= other.weight && (label != other.label || weight != other.weight);
     }
 };
 

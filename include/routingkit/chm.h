@@ -34,6 +34,8 @@ public:
     Label label;
     unsigned cnt;
 
+    bool in_graph = false;
+
     CHMArc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label)
         : from(from), mid_node(mid_node), to(to), arc_index(invalid_id), weight(weight), label(label), cnt(0) {}
 
@@ -75,7 +77,7 @@ public:
     CHMGraph() = default;
     CHMGraph(CHLRGraph& graph);
     CHLRGraph to_chlr();
-    unsigned dijkstra(unsigned from, unsigned to, Label profile);
+    std::pair<unsigned, std::vector<unsigned>> dijkstra(unsigned from, unsigned to, Label profile);
 
     void add_arc(CHMArc arc, bool avoid_duplicated = false);
     void add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
@@ -85,6 +87,7 @@ public:
     }
 
     std::pair<unsigned, unsigned> calculate_weight(CHMArc arc);
+    unsigned cal_sc_weight(unsigned from, unsigned mid, unsigned to);
     void keep_shortcut_dominance(CHMArc arc, bool increment, MinRankQueue& queue);
     void maintenance(CHMArcPos e_o_pos, unsigned w_n, Label l_n);
     void maintenance_optimized(CHMArcPos e_o, unsigned w_n, Label l_n);
@@ -92,14 +95,20 @@ public:
     void defragment();
 
     std::vector<std::pair<CHMArc, CHMArc>> Nm(CHMArc child);
+    std::vector<CHMArc> SCSp(CHMArc e);
     std::vector<CHMArc> Ne(CHMArc arc);
-    CHMArc Np(CHMArc e1, CHMArc e2);
+    CHMArc Np(CHMArc e1, CHMArc e2, bool with_mid_node_check = false);
 
     void add_dominant_shortcut(CHMArc arc, CHMArc shortcut);
     bool has_dominant_shortcut(CHMArc arc, CHMArc shortcut);
     std::vector<CHMArc> get_dominant_shortcuts(CHMArc arc);
     void remove_dominant_shortcut(CHMArc arc, CHMArc shortcut);
     unsigned w(unsigned from, unsigned to, Label label);
+
+    void add_or_reduce_arc(CHMArc arc);
+    void maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n);
+
+    unsigned witness_search(unsigned from, unsigned to, unsigned weight, Label label);
 };
 
 inline CHMArc& CHMArc::ref(CHMGraph& graph) {
