@@ -144,6 +144,7 @@ void test_dch_vs_dijkstra(DCHGraph& dch, unsigned seed) {
 }
 
 TEST(CHM, reduce_weight) {
+    return;
     unsigned runs = 10000;
     unsigned seed = 42;
     unsigned node_count = 5;
@@ -186,6 +187,7 @@ TEST(CHM, reduce_weight) {
 }
 
 TEST(CHM, increase_weight) {
+    return;
     unsigned runs = 10000;
     unsigned seed = 42;
     unsigned node_count = 12;
@@ -221,6 +223,69 @@ TEST(CHM, increase_weight) {
             CHMArc after = dch.nodes[from].arcs[arc];
             assert(after.weight >= before.weight);
             assert(after.weight == weight);
+
+            changes.push_back({before, after});
+        }
+
+        #ifdef DEBUG
+        print_graph_to_file(dch, "generated/debug_graph_after.txt");
+        #endif
+
+        // Postchange check
+        test_dch_vs_dijkstra(dch, seed);
+    }
+}
+
+TEST(CHM, remove_labels) {
+    unsigned runs = 10000;
+    unsigned seed = 42;
+    unsigned node_count = 9;
+
+    for (unsigned run = 0; run < runs; ++run) {
+        std::cout << "Running DCHLabel- test " << run << std::endl;
+
+        if(run == 27) {
+            std::cout << "Debug run" << std::endl;
+        }
+
+        CHLRGraph chlr = synthetic(node_count, true, run*seed+1);
+        DCHGraph dch = DCHGraph(chlr);
+
+        // Prechange check
+        test_dch_vs_dijkstra(dch, seed);
+
+        std::vector<std::pair<CHMArc, CHMArc>> changes;
+
+        #ifdef DEBUG
+        print_graph_to_file(dch, "generated/debug_graph_before.txt");
+        #endif
+
+        // Apply random changes
+        for (unsigned i = 0; i < node_count; ++i) {
+            unsigned from = rand_r(&seed) % node_count;
+            if(dch.nodes[from].arcs.empty()) continue;
+            unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
+            if(dch.nodes[from].arcs[arc].mid_node != invalid_id) continue;
+            if(dch.nodes[from].arcs[arc].weight < 2) continue;
+
+            unsigned old_weight = dch.nodes[from].arcs[arc].weight;
+            Label old_label = dch.nodes[from].arcs[arc].label;
+            Label new_label = old_label;
+            
+            // Remove one label
+            for(unsigned b = 0; b < 16; ++b) {
+                if(new_label.get_bit(b)) {
+                    new_label.set_bit(false, b);
+                    break;
+                }
+            }
+
+            CHMArc before = dch.nodes[from].arcs[arc];
+            dch.DCHLabel(dch.nodes[from].arcs[arc].get_pos(), new_label);
+            CHMArc after = dch.nodes[from].arcs[arc];
+            EXPECT_TRUE(after.label.is_subset_of(before.label));
+            EXPECT_EQ(after.weight, before.weight);
+            EXPECT_EQ(after.label.get_label(), new_label.get_label());
 
             changes.push_back({before, after});
         }

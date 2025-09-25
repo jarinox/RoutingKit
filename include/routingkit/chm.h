@@ -38,6 +38,8 @@ public:
 
     CHMArc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label)
         : from(from), mid_node(mid_node), to(to), arc_index(invalid_id), weight(weight), label(label), cnt(0) {}
+    
+    CHMArc() : from(0), mid_node(0), to(0), arc_index(invalid_id), weight(0), label(Label()), cnt(0) {}
 
     bool is_shortcut() const { return mid_node != invalid_id; }
     CHMArcPos get_pos() const { return CHMArcPos{from, arc_index}; }

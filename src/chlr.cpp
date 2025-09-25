@@ -101,8 +101,8 @@ void CHLR::build(bool print_progress) {
                 //        return (node_id != bypass_node) && (graph.nodes[bypass_node].rank > graph.nodes[node_id].rank);
                 //    });
 
-                contraction_graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
             }
         }
 

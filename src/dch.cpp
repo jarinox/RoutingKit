@@ -54,7 +54,7 @@ CHMArc& DCHGraph::ref(CHMArc arc) {
     return get(arc.get_pos());
 }
 
-void DCHQueue::push(CHMArc arc, DCHGraph& graph) {
+void DCHQueue::push(CHMArc arc, std::pair<CHMArc, CHMArc> parents, DCHGraph& graph) {
     unsigned arc_rank = std::min(graph.nodes[arc.from].rank, graph.nodes[arc.to].rank);
     unsigned arc_priority = arc_rank*100+__builtin_popcount(arc.label.get_label());
 
@@ -62,20 +62,20 @@ void DCHQueue::push(CHMArc arc, DCHGraph& graph) {
         if(is_in_queue.find(arc) != is_in_queue.end()) {
             return;
         }
-        unsigned_to_arc[queue.get_key(arc_priority)].push(arc);
+        unsigned_to_arc[queue.get_key(arc_priority)].push({arc, parents});
     } else {
         queue.push({arc_priority, static_cast<unsigned>(unsigned_to_arc.size())});
-        unsigned_to_arc.push_back(std::queue<CHMArc>{});
-        unsigned_to_arc.back().push(arc);
+        unsigned_to_arc.push_back(std::queue<std::pair<CHMArc, std::pair<CHMArc, CHMArc>>>{});
+        unsigned_to_arc.back().push({arc, parents});
     }
 
     is_in_queue.insert(arc);
 }
 
-CHMArc DCHQueue::pop() {
+std::pair<CHMArc, std::pair<CHMArc, CHMArc>> DCHQueue::pop() {
     auto vec = queue.peek();
 
-    auto arc = unsigned_to_arc[vec.key].front();
+    auto [arc, parents] = unsigned_to_arc[vec.key].front();
     unsigned_to_arc[vec.key].pop();
 
     is_in_queue.erase(arc);
@@ -84,7 +84,7 @@ CHMArc DCHQueue::pop() {
         queue.pop();
     }
 
-    return arc;
+    return {arc, parents};
 }
 
 std::pair<unsigned, std::vector<unsigned>> DCHGraph::dijkstra(unsigned from, unsigned to, Label profile) {
@@ -227,10 +227,10 @@ void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
     DCHQueue queue(nodes.size()*100+64);
 
     e_o.weight = w_n;
-    queue.push(e_o, *this);
+    queue.push(e_o, {CHMArc(), CHMArc()}, *this);
 
     while(!queue.empty()) {
-        CHMArc p1 = queue.pop();
+        auto [p1, info] = queue.pop();
 
         for(std::pair<CHMArc, CHMArc> scp : SCPPlus(p1)) {
             CHMArc p2 = scp.first;
@@ -238,7 +238,7 @@ void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
 
             if (p1.weight + p2.weight < child.weight) {
                 child.weight = p1.weight + p2.weight;
-                queue.push(child, *this);
+                queue.push(child, {p1, p2}, *this);
             }
         }
     }
@@ -254,22 +254,55 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
 
     DCHQueue queue(nodes.size()*100+64);
 
-    queue.push(e_o, *this);
+    queue.push(e_o, {CHMArc(), CHMArc()}, *this);
     e_o.weight = w_n;
 
     while(!queue.empty()) {
-        CHMArc arc = queue.pop();
+        auto [arc, info] = queue.pop();
 
         for(std::pair<CHMArc, CHMArc> scp : SCPPlus(arc)) {
             CHMArc p2 = scp.first;
             CHMArc child = scp.second;
 
             if (arc.weight + p2.weight == child.weight) {
-                queue.push(child, *this);
+                queue.push(child, {arc, p2}, *this);
             }
         }
 
         ref(arc).weight = compute_weight(arc);
+    }
+}
+
+void DCHGraph::DCHLabel(CHMArcPos e_o_pos, Label l_n) {
+    CHMArc& e_o = get(e_o_pos);
+    Label l_o = e_o.label;
+
+    //assert(l_o.is_superset_of(l_n) && "DCHLabel can only be used to remove labels");
+
+    DCHQueue queue(nodes.size()*100+64);
+
+    queue.push(e_o, {CHMArc(), CHMArc()}, *this);
+    e_o.label = l_n;
+
+    while(!queue.empty()) {
+        auto [p1, info] = queue.pop();
+
+        auto upward_shortcut_pairs = SCPPlus(p1);
+        bool stays_the_same = p1.is_shortcut() && (ref(p1).label == ref(info.first).label.unite(ref(info.second).label));
+        for(std::pair<CHMArc, CHMArc> scp : upward_shortcut_pairs) {
+            CHMArc p2 = scp.first;
+            CHMArc& child = ref(scp.second);
+
+            if (!stays_the_same && p1.weight + p2.weight == child.weight) {
+                queue.push(child, {p1, p2}, *this);
+            }
+        }
+
+        if (p1.is_shortcut()) {
+            unsigned label_a = ref(info.first).label.get_label();
+            unsigned label_b = ref(info.second).label.get_label();
+            ref(p1).label = ref(info.first).label.unite(ref(info.second).label);
+        }  
     }
 }
 
@@ -287,6 +320,27 @@ unsigned DCHGraph::compute_weight(CHMArc arc) {
 
         if (p1.weight + p2.weight < k) {
             k = p1.weight + p2.weight;
+        }
+    }
+
+    return k;
+}
+
+Label DCHGraph::compute_label(CHMArc arc) {
+    Label k = Label::fully_restricted();
+
+    if(arc.mid_node == invalid_id) {
+        return ref(arc).label;
+    }
+
+    for(std::pair<CHMArc, CHMArc> scp : SCPMinus(arc)) {
+        CHMArc p1 = scp.first;
+        CHMArc p2 = scp.second;
+
+        if(p1.weight + p2.weight != arc.weight) continue;
+
+        if (p1.label.unite(p2.label).is_subset_of(k)) {
+            k = p1.label.unite(p2.label);
         }
     }
 

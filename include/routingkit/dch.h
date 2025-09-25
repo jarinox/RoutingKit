@@ -21,9 +21,13 @@ public:
     std::vector<std::pair<CHMArc, CHMArc>> SCPPlus(CHMArc p1);
     std::vector<std::pair<CHMArc, CHMArc>> SCPMinus(CHMArc child);
     unsigned compute_weight(CHMArc arc);
+    Label compute_label(CHMArc arc);
 
     void DCHPlus(CHMArcPos e_o_pos, unsigned w_n);
     void DCHMinus(CHMArcPos e_o_pos, unsigned w_n);
+    void DCHLabel(CHMArcPos e_o_pos, Label l_n);
+
+    void DCH(CHMArcPos e_o_pos, unsigned weight, Label l_n);
 
     std::pair<unsigned, std::vector<unsigned>> dijkstra(unsigned from, unsigned to, Label profile);
 };
@@ -31,7 +35,7 @@ public:
 
 class DCHQueue {
     MinIDQueue queue;
-    std::vector<std::queue<CHMArc>> unsigned_to_arc;
+    std::vector<std::queue<std::pair<CHMArc, std::pair<CHMArc, CHMArc>>>> unsigned_to_arc;
     std::set<CHMArc> is_in_queue; // another option would be to uniquely identify by CHMArcPos
 public:
     DCHQueue(unsigned size) : queue(size), unsigned_to_arc(size) {}
@@ -40,8 +44,8 @@ public:
         return queue.empty();
     }
 
-    void push(CHMArc arc, DCHGraph& graph);
-    CHMArc pop();
+    void push(CHMArc arc, std::pair<CHMArc, CHMArc> parents, DCHGraph& graph);
+    std::pair<CHMArc, std::pair<CHMArc, CHMArc>> pop();
 
     bool contains(const CHMArc& arc) const {
         return is_in_queue.find(arc) != is_in_queue.end();
