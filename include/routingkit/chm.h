@@ -111,6 +111,8 @@ public:
     void maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n);
 
     unsigned witness_search(unsigned from, unsigned to, unsigned weight, Label label);
+
+    std::vector<CHMArc> in_arcs(unsigned node);
 };
 
 inline CHMArc& CHMArc::ref(CHMGraph& graph) {

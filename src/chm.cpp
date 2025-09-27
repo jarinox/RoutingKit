@@ -199,18 +199,26 @@ void CHMGraph::maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n) {
     unsigned w_o = get(e_o).weight;
     Label l_o = get(e_o).label;
 
+    if(l_n != l_o) {
+        maintenance_alt(e_o, inf_weight, l_o); // invalidate old shortcuts
+        CHMArc e_n = get(e_o);
+        e_n.weight = inf_weight;
+        e_n.label = l_n;
+        add_arc(e_n);
+        maintenance_alt(e_n.get_pos(), w_n, l_n); // reduce weight of new arc and generate new shortcuts
+        return;
+    }
+
     dominant_shortcuts.clear();
     MinRankQueue queue(nodes.size() * 100 + 64);
 
-    assert(l_n == l_o);
-
-    //if(w_n > w_o) {
-    //    queue.push(get(e_o), w_n > w_o, *this);
-    //    get(e_o).weight = w_n;
-    //} else {
+    if(w_n > w_o) {
+        queue.push(get(e_o), true, *this);
         get(e_o).weight = w_n;
-        queue.push(get(e_o), w_n > w_o, *this);
-    //}
+    } else {
+        get(e_o).weight = w_n;
+        queue.push(get(e_o), false, *this);
+    }
 
     while(!queue.empty()) {
         auto [increment, e] = queue.pop();
@@ -221,6 +229,52 @@ void CHMGraph::maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n) {
             return a.weight < b.weight;
         });
 
+        if(increment) {
+            std::vector<std::pair<std::pair<unsigned, unsigned>, unsigned>> paths_to_check;
+            for(const auto& in_arc : in_arcs(e.from)) {
+                if(in_arc.from == e.to) continue; // Skip loops
+                if(in_arc.weight >= inf_weight) continue;
+                paths_to_check.push_back({{in_arc.from, e.to}, e.from});
+            }   
+            
+            for(const auto& out_arc : nodes[e.to].arcs) {
+                if(out_arc.to == e.from) continue; // Skip loops
+                if(out_arc.weight >= inf_weight) continue;
+                paths_to_check.push_back({{e.from, out_arc.to}, e.to});
+            }
+
+
+            for(const auto& [path, mid_node] : paths_to_check) {
+                unsigned from_id = path.first;
+                unsigned to_id = path.second;
+
+                assert(from_id != to_id);
+
+                // Check if a valley path between from_id and to_id exists
+                for(const auto& e1 : nodes[from_id].arcs) {
+                    if(e1.weight >= inf_weight) continue;
+                    if(e1.to == mid_node) continue; // skip as it is contracted at the same time
+                    if(e1.to == to_id) continue; // skip direct path
+                    if(e1.to == from_id) continue; // skip loops
+
+                    if(nodes[e1.to].rank >= nodes[from_id].rank) continue; // ensure valley property
+                    if(nodes[e1.to].rank >= nodes[to_id].rank) continue;
+
+                    for(const auto& e2 : nodes[e1.to].arcs) {
+                        if(e2.weight >= inf_weight) continue;
+                        if(e2.to != to_id) continue;
+
+                        unsigned total_weight = e1.weight + e2.weight;
+                        if(total_weight < w_n) {
+                            CHMArc shortcut{from_id, e1.to, to_id, total_weight, e1.label.unite(e2.label)};
+                            add_arc(shortcut); // TODO: could also reduce existing arc, but not necessary for correctness
+                            queue.push(shortcut, true, *this);
+                        }
+                    }
+                }
+            }
+        }
+
         
         for (auto e_ : partners) {
             if(e_.weight >= inf_weight) continue;
@@ -228,23 +282,8 @@ void CHMGraph::maintenance_alt(CHMArcPos e_o, unsigned w_n, Label l_n) {
             if (increment) {
                 auto e__ = Np(e_, e, true);
                 auto& e__ref = e__.ref(*this);
-                if (e.to == e_.from)
-                    e__ref.weight = cal_sc_weight(e.from, e.to, e_.to);
-                else
-                    e__ref.weight = cal_sc_weight(e_.from, e_.to, e.to);
-
-
-                //if (e__.weight == e.weight + e_.weight) {
-                    
-                    queue.push(e__ref, true, *this);
-                //}
-
-                //auto [k, mid_node] = calculate_weight(e__);
-                //if (e__.weight < k) {
-                //    auto& e__ref = e__.ref(*this);
-                //    e__ref.weight = k;
-                //    e__ref.mid_node = mid_node;
-                //}
+                
+                
             } else { // decrement
                 auto e__ = Np(e_, e);
                 if (e__.weight >= inf_weight) continue;
@@ -607,4 +646,19 @@ unsigned CHMGraph::cal_sc_weight(unsigned from, unsigned mid, unsigned to) {
     }
 
     return w_e1 + w_e2;
+}
+
+
+std::vector<CHMArc> CHMGraph::in_arcs(unsigned node) {
+    std::vector<CHMArc> result;
+
+    for (const auto& n : nodes) {
+        for (const auto& arc : n.arcs) {
+            if (arc.to == node) {
+                result.push_back(arc);
+            }
+        }
+    }
+
+    return result;
 }

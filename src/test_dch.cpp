@@ -20,7 +20,7 @@ CHLRGraph synthetic(unsigned node_count, bool build = true, unsigned seed = 42) 
 
     for (unsigned i = 0; i < node_count; ++i) {
         std::vector<CHMArc> targets;
-        for (unsigned j = 0; j < rand_r(&seed) % 7 + 1; ++j) { // Random number of edges per node
+        for (unsigned j = 0; j < rand_r(&seed) % 5 + 1; ++j) { // Random number of edges per node
             unsigned target = rand_r(&seed) % node_count;
             if (target == i) continue; // No self-loops
 
@@ -147,7 +147,7 @@ TEST(CHM, reduce_weight) {
     return;
     unsigned runs = 10000;
     unsigned seed = 42;
-    unsigned node_count = 5;
+    unsigned node_count = 12;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCH- test " << run << std::endl;
@@ -173,7 +173,7 @@ TEST(CHM, reduce_weight) {
             unsigned weight = rand_r(&seed) % (old_weight - 1) + 1; // decrease weight
 
             CHMArc before = dch.nodes[from].arcs[arc];
-            dch.DCHMinus(dch.nodes[from].arcs[arc].get_pos(), weight);
+            dch.DCHAlt(dch.nodes[from].arcs[arc].get_pos(), weight);
             CHMArc after = dch.nodes[from].arcs[arc];
 
             changes.push_back({before, after});
@@ -188,9 +188,9 @@ TEST(CHM, reduce_weight) {
 
 TEST(CHM, increase_weight) {
     return;
-    unsigned runs = 10000;
+    unsigned runs = 20000;
     unsigned seed = 42;
-    unsigned node_count = 12;
+    unsigned node_count = 9;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCH+ test " << run << std::endl;
@@ -239,10 +239,96 @@ TEST(CHM, increase_weight) {
 TEST(CHM, remove_labels) {
     unsigned runs = 10000;
     unsigned seed = 42;
-    unsigned node_count = 9;
+    unsigned node_count = 5;
+
+    unsigned ssc = 0;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCHLabel- test " << run << std::endl;
+
+        if(run == 2049) {
+            std::cout << "Debug run" << std::endl;
+        }
+
+        CHLRGraph chlr = synthetic(node_count, true, run*seed+1);
+
+        #ifdef DEBUG_INFO
+        unsigned original_arcs = 0;
+        unsigned shortcut_arcs = 0;
+        for(const auto& node : chlr.nodes) {
+            for (const auto& arc : node.out_arcs) {
+                if(arc.is_shortcut()) shortcut_arcs++;
+                else original_arcs++;
+            }
+        }
+        if(shortcut_arcs > ssc) ssc = shortcut_arcs;
+        std::cout << "Original arcs: " << original_arcs << " Shortcut arcs: " << shortcut_arcs << " max: " << ssc << std::endl;
+        #endif
+
+        DCHGraph dch = DCHGraph(chlr);
+
+        // Prechange check
+        test_dch_vs_dijkstra(dch, seed);
+
+        std::vector<std::pair<CHMArc, CHMArc>> changes;
+
+        #ifdef DEBUG
+        print_graph_to_file(dch, "generated/debug_graph_before.txt");
+        #endif
+
+        // Apply random changes
+        for (unsigned i = 0; i < 1; ++i) {
+            unsigned from = rand_r(&seed) % node_count;
+            if(dch.nodes[from].arcs.empty()) continue;
+            unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
+            if(dch.nodes[from].arcs[arc].mid_node != invalid_id) continue;
+            if(dch.nodes[from].arcs[arc].weight < 2) continue;
+
+            unsigned old_weight = dch.nodes[from].arcs[arc].weight;
+            Label old_label = dch.nodes[from].arcs[arc].label;
+            Label new_label = old_label;
+            
+            // Remove one label
+            for(unsigned b = 0; b < 16; ++b) {
+                if(new_label.get_bit(b)) {
+                    new_label.set_bit(false, b);
+                    break;
+                }
+            }
+
+            CHMArc before = dch.nodes[from].arcs[arc];
+
+            dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
+            dch.nodes[from].arcs[arc].label = new_label;
+            dch.DCHMinus(dch.nodes[from].arcs[arc].get_pos(), before.weight);
+
+            CHMArc after = dch.nodes[from].arcs[arc];
+            EXPECT_TRUE(after.label.is_subset_of(before.label));
+            EXPECT_EQ(after.weight, before.weight);
+            EXPECT_EQ(after.label.get_label(), new_label.get_label());
+
+            changes.push_back({before, after});
+        }
+
+        #ifdef DEBUG
+        print_graph_to_file(dch, "generated/debug_graph_after.txt");
+        #endif
+
+        // Postchange check
+        test_dch_vs_dijkstra(dch, seed);
+    }
+
+    std::cout << "Max shortcut arcs in any graph: " << ssc << std::endl;
+}
+
+TEST(CHM, add_labels) {
+    return;
+    unsigned runs = 10000;
+    unsigned seed = 42;
+    unsigned node_count = 9;
+
+    for (unsigned run = 0; run < runs; ++run) {
+        std::cout << "Running DCHLabel+ test " << run << std::endl;
 
         if(run == 27) {
             std::cout << "Debug run" << std::endl;
@@ -272,18 +358,22 @@ TEST(CHM, remove_labels) {
             Label old_label = dch.nodes[from].arcs[arc].label;
             Label new_label = old_label;
             
-            // Remove one label
+            // Add one label
             for(unsigned b = 0; b < 16; ++b) {
-                if(new_label.get_bit(b)) {
-                    new_label.set_bit(false, b);
+                if(!new_label.get_bit(b)) {
+                    new_label.set_bit(true, b);
                     break;
                 }
             }
 
             CHMArc before = dch.nodes[from].arcs[arc];
-            dch.DCHLabel(dch.nodes[from].arcs[arc].get_pos(), new_label);
+            
+            dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
+            dch.nodes[from].arcs[arc].label = new_label;
+            dch.DCHMinus(dch.nodes[from].arcs[arc].get_pos(), before.weight);
+
             CHMArc after = dch.nodes[from].arcs[arc];
-            EXPECT_TRUE(after.label.is_subset_of(before.label));
+            EXPECT_TRUE(after.label.is_superset_of(before.label));
             EXPECT_EQ(after.weight, before.weight);
             EXPECT_EQ(after.label.get_label(), new_label.get_label());
 

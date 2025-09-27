@@ -35,10 +35,11 @@ DCHGraph::DCHGraph(CHLRGraph& graph) {
     }
 }
 
-void DCHGraph::add_arc(CHMArc arc) {
+CHMArc DCHGraph::add_arc(CHMArc arc) {
     arc.arc_index = nodes[arc.from].arcs.size();
     arc.in_graph = true;
     nodes[arc.from].arcs.push_back(arc);
+    return arc;
 }
 
 void DCHGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
@@ -54,37 +55,37 @@ CHMArc& DCHGraph::ref(CHMArc arc) {
     return get(arc.get_pos());
 }
 
-void DCHQueue::push(CHMArc arc, std::pair<CHMArc, CHMArc> parents, DCHGraph& graph) {
-    unsigned arc_rank = std::min(graph.nodes[arc.from].rank, graph.nodes[arc.to].rank);
-    unsigned arc_priority = arc_rank*100+__builtin_popcount(arc.label.get_label());
+void DCHQueue::push(DCHQueueEntry entry, DCHGraph& graph) {
+    unsigned arc_rank = std::min(graph.nodes[entry.arc.from].rank, graph.nodes[entry.arc.to].rank);
+    unsigned arc_priority = arc_rank*100+__builtin_popcount(entry.arc.label.get_label());
 
     if(queue.contains_id(arc_priority)) {
-        if(is_in_queue.find(arc) != is_in_queue.end()) {
+        if(is_in_queue.find(entry.arc) != is_in_queue.end()) {
             return;
         }
-        unsigned_to_arc[queue.get_key(arc_priority)].push({arc, parents});
+        unsigned_to_arc[queue.get_key(arc_priority)].push(entry);
     } else {
         queue.push({arc_priority, static_cast<unsigned>(unsigned_to_arc.size())});
-        unsigned_to_arc.push_back(std::queue<std::pair<CHMArc, std::pair<CHMArc, CHMArc>>>{});
-        unsigned_to_arc.back().push({arc, parents});
+        unsigned_to_arc.push_back(std::queue<DCHQueueEntry>{});
+        unsigned_to_arc.back().push(entry);
     }
 
-    is_in_queue.insert(arc);
+    is_in_queue.insert(entry.arc);
 }
 
-std::pair<CHMArc, std::pair<CHMArc, CHMArc>> DCHQueue::pop() {
+DCHQueueEntry DCHQueue::pop() {
     auto vec = queue.peek();
 
-    auto [arc, parents] = unsigned_to_arc[vec.key].front();
+    auto entry = unsigned_to_arc[vec.key].front();
     unsigned_to_arc[vec.key].pop();
 
-    is_in_queue.erase(arc);
+    is_in_queue.erase(entry.arc);
 
     if(unsigned_to_arc[vec.key].empty()) {
         queue.pop();
     }
 
-    return {arc, parents};
+    return entry;
 }
 
 std::pair<unsigned, std::vector<unsigned>> DCHGraph::dijkstra(unsigned from, unsigned to, Label profile) {
@@ -227,10 +228,11 @@ void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
     DCHQueue queue(nodes.size()*100+64);
 
     e_o.weight = w_n;
-    queue.push(e_o, {CHMArc(), CHMArc()}, *this);
+    queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), false}, *this);
 
     while(!queue.empty()) {
-        auto [p1, info] = queue.pop();
+        auto entry = queue.pop();
+        auto p1 = entry.arc;
 
         for(std::pair<CHMArc, CHMArc> scp : SCPPlus(p1)) {
             CHMArc p2 = scp.first;
@@ -238,7 +240,7 @@ void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
 
             if (p1.weight + p2.weight < child.weight) {
                 child.weight = p1.weight + p2.weight;
-                queue.push(child, {p1, p2}, *this);
+                queue.push(DCHQueueEntry{child, p1, p2, false}, *this);
             }
         }
     }
@@ -254,18 +256,19 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
 
     DCHQueue queue(nodes.size()*100+64);
 
-    queue.push(e_o, {CHMArc(), CHMArc()}, *this);
+    queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), true}, *this);
     e_o.weight = w_n;
 
     while(!queue.empty()) {
-        auto [arc, info] = queue.pop();
+        auto entry = queue.pop();
+        auto arc = entry.arc;
 
         for(std::pair<CHMArc, CHMArc> scp : SCPPlus(arc)) {
             CHMArc p2 = scp.first;
             CHMArc child = scp.second;
 
             if (arc.weight + p2.weight == child.weight) {
-                queue.push(child, {arc, p2}, *this);
+                queue.push(DCHQueueEntry{child, arc, p2, true}, *this);
             }
         }
 
@@ -281,28 +284,31 @@ void DCHGraph::DCHLabel(CHMArcPos e_o_pos, Label l_n) {
 
     DCHQueue queue(nodes.size()*100+64);
 
-    queue.push(e_o, {CHMArc(), CHMArc()}, *this);
+    queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), false}, *this);
     e_o.label = l_n;
 
     while(!queue.empty()) {
-        auto [p1, info] = queue.pop();
+        auto entry = queue.pop();
+        auto p1 = entry.arc;
 
-        auto upward_shortcut_pairs = SCPPlus(p1);
-        bool stays_the_same = p1.is_shortcut() && (ref(p1).label == ref(info.first).label.unite(ref(info.second).label));
-        for(std::pair<CHMArc, CHMArc> scp : upward_shortcut_pairs) {
-            CHMArc p2 = scp.first;
-            CHMArc& child = ref(scp.second);
+        bool stays_the_same = p1.is_shortcut() && (ref(p1).label == ref(entry.p1).label.unite(ref(entry.p2).label));
+        if(!stays_the_same) {
+            auto upward_shortcut_pairs = SCPPlus(p1);
+            for(std::pair<CHMArc, CHMArc> scp : upward_shortcut_pairs) {
+                CHMArc p2 = scp.first;
+                CHMArc& child = ref(scp.second);
 
-            if (!stays_the_same && p1.weight + p2.weight == child.weight) {
-                queue.push(child, {p1, p2}, *this);
+                if (p1.weight + p2.weight == child.weight) {
+                    queue.push(DCHQueueEntry{child, p1, p2, false}, *this);
+                }
             }
         }
 
         if (p1.is_shortcut()) {
-            unsigned label_a = ref(info.first).label.get_label();
-            unsigned label_b = ref(info.second).label.get_label();
-            ref(p1).label = ref(info.first).label.unite(ref(info.second).label);
-        }  
+            unsigned label_a = ref(entry.p1).label.get_label();
+            unsigned label_b = ref(entry.p2).label.get_label();
+            ref(p1).label = ref(entry.p1).label.unite(ref(entry.p2).label);
+        }
     }
 }
 
@@ -345,4 +351,110 @@ Label DCHGraph::compute_label(CHMArc arc) {
     }
 
     return k;
+}
+
+
+void DCHGraph::DCHAlt(CHMArcPos e_o_pos, unsigned w_n) {
+    CHMArc& e_o = get(e_o_pos);
+    unsigned w_o = e_o.weight;
+    
+    DCHQueue queue(nodes.size()*100+64);
+
+    bool inc = w_n > w_o;
+
+    if(inc) {
+        queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), true}, *this);
+        e_o.weight = w_n;
+    } else {
+        e_o.weight = w_n;
+        queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), false}, *this);
+    }
+    
+    while(!queue.empty()) {
+        auto entry = queue.pop();
+        auto e = entry.arc;
+        auto increment = entry.increment;
+
+        if(increment) {
+            // Handle possible recontraction
+            std::vector<std::pair<std::pair<unsigned, unsigned>, unsigned>> paths_to_check;
+            for(const auto& in_arc : in_arcs(e.from)) {
+                if(in_arc.from == e.to) continue; // Skip loops
+                if(in_arc.weight >= inf_weight) continue;
+                paths_to_check.push_back({{in_arc.from, e.to}, e.from});
+            }   
+            
+            for(const auto& out_arc : nodes[e.to].arcs) {
+                if(out_arc.to == e.from) continue; // Skip loops
+                if(out_arc.weight >= inf_weight) continue;
+                paths_to_check.push_back({{e.from, out_arc.to}, e.to});
+            }
+
+
+            for(const auto& [path, mid_node] : paths_to_check) {
+                unsigned from_id = path.first;
+                unsigned to_id = path.second;
+
+                assert(from_id != to_id);
+
+                std::vector<DCHQueueEntry> potential_shortcuts;
+
+                // Check if a valley path between from_id and to_id exists
+                for(const auto& e1 : nodes[from_id].arcs) {
+                    if(e1.weight >= inf_weight) continue;
+                    if(e1.to == mid_node) continue; // skip as it is contracted at the same time
+                    if(e1.to == to_id) continue; // skip direct path
+                    if(e1.to == from_id) continue; // skip loops
+
+                    if(nodes[e1.to].rank >= nodes[from_id].rank) continue; // ensure valley property
+                    if(nodes[e1.to].rank >= nodes[to_id].rank) continue;
+
+                    for(const auto& e2 : nodes[e1.to].arcs) {
+                        if(e2.weight >= inf_weight) continue;
+                        if(e2.to != to_id) continue;
+
+                        // TODO: do we need a witness search to check if the shortcut is necessary?
+                        // Could potentially help to reduce the number of shortcuts
+                        unsigned total_weight = e1.weight + e2.weight;
+                        if(total_weight < w_n) {
+                            CHMArc shortcut{from_id, e1.to, to_id, total_weight, e1.label.unite(e2.label)};
+                            potential_shortcuts.push_back(DCHQueueEntry{shortcut, e1, e2, true});
+                        }
+                    }
+                }
+
+                for(const auto& shortcut : potential_shortcuts) {
+                    CHMArc added_arc = add_arc(shortcut.arc); // TODO: could also reduce existing arc, but not necessary for correctness
+                    queue.push(DCHQueueEntry{added_arc, shortcut.p1, shortcut.p2, true}, *this);
+                }
+            }
+
+
+            // DCH+
+            for(std::pair<CHMArc, CHMArc> scp : SCPPlus(e)) {
+                CHMArc p2 = scp.first;
+                CHMArc child = scp.second;
+
+                if (e.weight + p2.weight == child.weight) {
+                    queue.push(DCHQueueEntry{child, e, p2, true}, *this);
+                }
+            }
+
+            ref(e).weight = compute_weight(e);
+
+        } else { // decrement
+
+            // DCH-
+            for(std::pair<CHMArc, CHMArc> scp : SCPPlus(e)) {
+                CHMArc p2 = scp.first;
+                CHMArc& child = ref(scp.second);
+
+                if (e.weight + p2.weight < child.weight) {
+                    child.weight = e.weight + p2.weight;
+                    queue.push(DCHQueueEntry{child, e, p2, false}, *this);
+                }
+            }
+
+        }
+    }
 }
