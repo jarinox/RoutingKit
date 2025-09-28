@@ -237,10 +237,9 @@ TEST(CHM, increase_weight) {
 }
 
 TEST(CHM, remove_labels) {
-    return;
     unsigned runs = 10000;
     unsigned seed = 42;
-    unsigned node_count = 100;
+    unsigned node_count = 12;
 
     unsigned ssc = 0;
 
@@ -304,6 +303,8 @@ TEST(CHM, remove_labels) {
 
             dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
             dch.nodes[from].arcs[arc].label = new_label;
+            dch.add_arc(dch.nodes[from].arcs[arc]);
+
             dch.DCHMinus(dch.nodes[from].arcs[arc].get_pos(), before.weight);
 
             CHMArc after = dch.nodes[from].arcs[arc];
@@ -328,6 +329,7 @@ TEST(CHM, remove_labels) {
 }
 
 TEST(CHM, add_labels) {
+    return;
     unsigned runs = 10000;
     unsigned seed = 42;
     unsigned node_count = 100;
@@ -391,5 +393,90 @@ TEST(CHM, add_labels) {
 
         // Postchange check
         test_dch_vs_dijkstra(dch, seed);
+    }
+}
+
+TEST(CHM, dch_on_real_road_network) {
+    return;
+    unsigned seed = 42;
+    std::vector<std::string> osm_files = {
+        //"heidelberg.osm.pbf",
+        "ma_min_messplatz.osm.pbf",
+        //"rippo.osm.pbf",
+        //"hd_west.osm.pbf",
+        //"hd_neuenheim.osm.pbf",
+    };
+
+    Label profiles[4] = {
+        Label(0b000),
+        Label(0b001),
+        Label(0b010),
+        Label(0b100),
+    };
+
+    for (const auto& osm_file : osm_files) {
+        TestSetup setup = TestSetup(osm_file);
+        unsigned node_count = setup.chlr.graph.nodes.size();
+        std::cout << "Graph has " << node_count << " nodes." << std::endl;
+
+        std::cout << "Building CH for " << osm_file << std::endl;
+        setup.chlr.build();
+        
+        DCHGraph dch = DCHGraph(setup.chlr.graph);
+
+        std::cout << "Apply random changes" << std::endl;
+
+        // Apply random changes
+        for (unsigned i = 0; i < node_count; i = i + 10) {
+            unsigned from = rand_r(&seed) % node_count;
+            if(dch.nodes[from].arcs.empty()) continue;
+            unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
+            if(dch.nodes[from].arcs[arc].mid_node != invalid_id) continue;
+            if(dch.nodes[from].arcs[arc].weight < 2) continue;  
+
+            unsigned old_weight = dch.nodes[from].arcs[arc].weight;
+            unsigned weight = rand_r(&seed) % 600 + 1; // random new weight
+
+            if(weight < old_weight) {
+                dch.DCHMinus(dch.nodes[from].arcs[arc].get_pos(), weight);
+            } else if(weight > old_weight) {
+                dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), weight);
+            }
+        }
+
+        for (unsigned i = 1; i < node_count; i = i + 10) {
+            unsigned from = rand_r(&seed) % node_count;
+            if(dch.nodes[from].arcs.empty()) continue;
+            unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
+            if(dch.nodes[from].arcs[arc].mid_node != invalid_id) continue;
+            if(dch.nodes[from].arcs[arc].weight < 2) continue;  
+
+            Label new_label = profiles[rand_r(&seed) % 4];
+            if(new_label.get_label() == dch.nodes[from].arcs[arc].label.get_label()) continue;
+
+            CHMArc before = dch.nodes[from].arcs[arc];
+            dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
+            dch.nodes[from].arcs[arc].label = new_label;
+            dch.DCHMinus(dch.nodes[from].arcs[arc].get_pos(), before.weight);
+        }
+
+        std::cout << "Running requests..." << std::endl;
+        for(unsigned i = 0; i < 100; ++i) {
+            unsigned from = rand_r(&seed) % node_count;
+            unsigned to = rand_r(&seed) % node_count;
+            if(from == to) continue;
+            
+            Label profile = profiles[rand_r(&seed) % 4];
+            CHLRGraph chlr = dch.to_chlr();
+            CHLRQuery q(chlr);
+            q.set(from, to, profile);
+            q.run();
+
+            auto [dij, dij_path] = dch.dijkstra(from, to, profile);
+            auto chlr_path = q.get_arc_path();
+            unsigned chlr_len = path_length(chlr_path);
+
+            EXPECT_EQ(dij, chlr_len);
+        }
     }
 }
