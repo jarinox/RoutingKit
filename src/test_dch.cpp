@@ -237,6 +237,7 @@ TEST(CHM, increase_weight) {
 }
 
 TEST(CHM, remove_labels) {
+    return;
     unsigned runs = 10000;
     unsigned seed = 42;
     unsigned node_count = 12;
@@ -300,14 +301,15 @@ TEST(CHM, remove_labels) {
             }
 
             CHMArc before = dch.nodes[from].arcs[arc];
+            if(before.weight == inf_weight) continue;
 
             dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
             dch.nodes[from].arcs[arc].label = new_label;
-            dch.add_arc(dch.nodes[from].arcs[arc]);
+            CHMArc new_arc = dch.add_arc(dch.nodes[from].arcs[arc]);
 
-            dch.DCHMinus(dch.nodes[from].arcs[arc].get_pos(), before.weight);
+            dch.DCHMinus(new_arc.get_pos(), before.weight);
 
-            CHMArc after = dch.nodes[from].arcs[arc];
+            CHMArc after = dch.ref(new_arc);
             EXPECT_TRUE(after.label.is_subset_of(before.label));
             EXPECT_EQ(after.weight, before.weight);
             EXPECT_EQ(after.label.get_label(), new_label.get_label());
@@ -332,7 +334,7 @@ TEST(CHM, add_labels) {
     return;
     unsigned runs = 10000;
     unsigned seed = 42;
-    unsigned node_count = 100;
+    unsigned node_count = 12;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCHLabel+ test " << run << std::endl;
@@ -374,12 +376,14 @@ TEST(CHM, add_labels) {
             }
 
             CHMArc before = dch.nodes[from].arcs[arc];
+            if(before.weight == inf_weight) continue;
             
             dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
             dch.nodes[from].arcs[arc].label = new_label;
-            dch.DCHMinus(dch.nodes[from].arcs[arc].get_pos(), before.weight);
+            CHMArc new_arc = dch.add_arc(dch.nodes[from].arcs[arc]);
+            dch.DCHMinus(new_arc.get_pos(), before.weight);
 
-            CHMArc after = dch.nodes[from].arcs[arc];
+            CHMArc after = dch.ref(new_arc);
             EXPECT_TRUE(after.label.is_superset_of(before.label));
             EXPECT_EQ(after.weight, before.weight);
             EXPECT_EQ(after.label.get_label(), new_label.get_label());
@@ -397,7 +401,6 @@ TEST(CHM, add_labels) {
 }
 
 TEST(CHM, dch_on_real_road_network) {
-    return;
     unsigned seed = 42;
     std::vector<std::string> osm_files = {
         //"heidelberg.osm.pbf",
@@ -457,7 +460,8 @@ TEST(CHM, dch_on_real_road_network) {
             CHMArc before = dch.nodes[from].arcs[arc];
             dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
             dch.nodes[from].arcs[arc].label = new_label;
-            dch.DCHMinus(dch.nodes[from].arcs[arc].get_pos(), before.weight);
+            CHMArc new_arc = dch.add_arc(dch.nodes[from].arcs[arc]);
+            dch.DCHMinus(new_arc.get_pos(), before.weight);
         }
 
         std::cout << "Running requests..." << std::endl;

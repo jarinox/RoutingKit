@@ -21,6 +21,7 @@ CHLRGraph DCHGraph::to_chlr() {
 
 DCHGraph::DCHGraph(CHLRGraph& graph) {
     nodes.resize(graph.nodes.size());
+    garbage.resize(graph.nodes.size());
 
     for (unsigned i = 0; i < graph.nodes.size(); ++i) {
         nodes[i].node_index = i;
@@ -36,9 +37,18 @@ DCHGraph::DCHGraph(CHLRGraph& graph) {
 }
 
 CHMArc DCHGraph::add_arc(CHMArc arc) {
-    arc.arc_index = nodes[arc.from].arcs.size();
     arc.in_graph = true;
-    nodes[arc.from].arcs.push_back(arc);
+
+    if(!garbage[arc.from].empty()) {
+        auto pos = garbage[arc.from].front();
+        garbage[arc.from].pop();
+        arc.arc_index = pos.arc_index;
+        nodes[arc.from].arcs[pos.arc_index] = arc;
+    } else {
+        arc.arc_index = nodes[arc.from].arcs.size();
+        nodes[arc.from].arcs.push_back(arc);
+    }
+
     return arc;
 }
 
@@ -215,7 +225,7 @@ CHMArc DCHGraph::Np(CHMArc p1, CHMArc p2) {
     assert(p1.from != p2.to); // no loops
 
     for(const auto& arc : nodes[p1.from].arcs) {
-        if(arc.to == p2.to && arc.mid_node == p1.to && arc.label == p1.label.unite(p2.label)) {
+        if(arc.to == p2.to && arc.mid_node == p1.to && arc.label == p1.label.unite(p2.label) && arc.in_graph) {
             return arc;
         }
     }
@@ -287,6 +297,8 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
     queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), true}, *this);
     e_o.weight = w_n;
 
+    std::vector<DCHArcPos> possible_garbage;
+
     while(!queue.empty()) {
         auto entry = queue.pop();
         auto arc = entry.arc;
@@ -300,7 +312,20 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
             }
         }
 
-        ref(arc).weight = compute_weight(arc);
+        unsigned new_weight = compute_weight(arc);
+
+        if(new_weight == inf_weight) {
+            possible_garbage.push_back({arc.from, arc.arc_index});
+        }
+        
+        ref(arc).weight = new_weight;
+    }
+
+    for(const auto& pos : possible_garbage) {
+        if(nodes[pos.node_index].arcs[pos.arc_index].weight == inf_weight) {
+            nodes[pos.node_index].arcs[pos.arc_index].in_graph = false;
+            garbage[pos.node_index].push(pos);
+        }
     }
 }
 

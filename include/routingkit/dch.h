@@ -5,9 +5,15 @@
 #include <routingkit/chm.h>
 #include <routingkit/label.h>
 
+struct DCHArcPos {
+    unsigned node_index;
+    unsigned arc_index;
+};
+
 class DCHGraph {
 public:
     std::vector<CHMNode> nodes;
+    std::vector<std::queue<DCHArcPos>> garbage;
     
     DCHGraph() = default;
     DCHGraph(CHLRGraph& graph);
