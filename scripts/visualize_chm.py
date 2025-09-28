@@ -102,7 +102,7 @@ def visualize_graph(file_path):
             if label is not None:
                 nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): label}, font_color='purple', font_size=8, label_pos=0.7, bbox=dict(facecolor='white', alpha=0, edgecolor='none'), connectionstyle=connectionstyle)
         elif edge_type == 'inf_weight':
-            nx.draw_networkx_edges(G, pos, edgelist=[(u, v, key)], connectionstyle=connectionstyle, edge_color='gray', width=0.5, alpha=0.2, arrows=False)
+            nx.draw_networkx_edges(G, pos, edgelist=[(u, v, key)], connectionstyle=connectionstyle, edge_color='gray', width=0.5, alpha=0.2, arrows=True)
 
     # Create a legend
     legend_elements = [

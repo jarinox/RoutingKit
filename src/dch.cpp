@@ -147,25 +147,7 @@ std::pair<unsigned, std::vector<unsigned>> DCHGraph::dijkstra(unsigned from, uns
 std::vector<std::pair<CHMArc, CHMArc>> DCHGraph::SCPPlus(CHMArc p1) {
     std::vector<std::pair<CHMArc, CHMArc>> pairs;
 
-    std::vector<CHMArc> ne;
-    
-    if (nodes[p1.from].rank > nodes[p1.to].rank) {
-        // p1 is a downward arc
-        for (CHMArc p2 : nodes[p1.to].arcs) {
-            if (nodes[p2.to].rank < nodes[p1.to].rank) continue;
-            ne.push_back(p2);
-        }
-    } else {
-        // p1 is an upward arc
-        for (CHMNode& node : nodes) {
-            for (CHMArc p2 : node.arcs) {
-                if (p2.to != p1.from) continue;
-                if (p2.from == p1.to) continue; // skip loops
-                if (nodes[p2.from].rank < nodes[p1.from].rank) continue;
-                ne.push_back(p2);
-            }
-        }
-    }
+    std::vector<CHMArc> ne = Ne(p1);
 
     for (CHMArc p2 : ne) {
         CHMArc _p1 = p1;
@@ -196,6 +178,50 @@ std::vector<std::pair<CHMArc, CHMArc>> DCHGraph::SCPPlus(CHMArc p1) {
     }
 
     return pairs;
+}
+
+std::vector<CHMArc> DCHGraph::Ne(CHMArc p1) {
+    std::vector<CHMArc> ne;
+    
+    if (nodes[p1.from].rank > nodes[p1.to].rank) {
+        // p1 is a downward arc
+        for (CHMArc p2 : nodes[p1.to].arcs) {
+            if (nodes[p2.to].rank < nodes[p1.to].rank) continue;
+            if (p2.to == p1.from) continue; // skip loops
+            ne.push_back(p2);
+        }
+    } else {
+        // p1 is an upward arc
+        for (CHMNode& node : nodes) {
+            for (CHMArc p2 : node.arcs) {
+                if (p2.to != p1.from) continue;
+                if (p2.from == p1.to) continue; // skip loops
+                if (nodes[p2.from].rank < nodes[p1.from].rank) continue;
+                ne.push_back(p2);
+            }
+        }
+    }
+
+    return ne;
+}
+
+CHMArc DCHGraph::Np(CHMArc p1, CHMArc p2) {
+    if(p1.to != p2.from) {
+        std::swap(p1, p2);
+    }
+
+    assert(p1.to == p2.from);
+    assert(p1.weight < inf_weight && p2.weight < inf_weight);
+    assert(p1.from != p2.to); // no loops
+
+    for(const auto& arc : nodes[p1.from].arcs) {
+        if(arc.to == p2.to && arc.mid_node == p1.to && arc.label == p1.label.unite(p2.label)) {
+            return arc;
+        }
+    }
+
+    CHMArc new_arc = add_arc(CHMArc{p1.from, p1.to, p2.to, inf_weight, p1.label.unite(p2.label)});
+    return new_arc;
 }
 
 /// Computes the downward shortcut pairs <p1, p2> of child as defined by Zhang and Yu (2022)
@@ -234,9 +260,11 @@ void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
         auto entry = queue.pop();
         auto p1 = entry.arc;
 
-        for(std::pair<CHMArc, CHMArc> scp : SCPPlus(p1)) {
-            CHMArc p2 = scp.first;
-            CHMArc& child = ref(scp.second);
+        auto ne = Ne(p1);
+
+        for(const auto& p2 : ne) {
+            if(p2.weight == inf_weight) continue;
+            CHMArc& child = ref(Np(p1, p2));
 
             if (p1.weight + p2.weight < child.weight) {
                 child.weight = p1.weight + p2.weight;

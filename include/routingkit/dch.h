@@ -33,6 +33,9 @@ public:
 
     std::pair<unsigned, std::vector<unsigned>> dijkstra(unsigned from, unsigned to, Label profile);
 
+    std::vector<CHMArc> Ne(CHMArc arc);
+    CHMArc Np(CHMArc p1, CHMArc p2);
+
     std::vector<CHMArc> in_arcs(unsigned node) {
         std::vector<CHMArc> result;
 

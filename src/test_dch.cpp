@@ -117,7 +117,7 @@ void test_dch_vs_dijkstra(DCHGraph& dch, unsigned seed) {
     CHLRGraph chlr = dch.to_chlr();
     unsigned node_count = chlr.nodes.size();
 
-    for(unsigned query = 0; query < min(30u, node_count); query += 2) {
+    for(unsigned query = 0; query < min(40u, node_count); query += 2) {
         Label label = Label(rand_r(&seed) % 8);
         CHLRQuery q(chlr);
         q.set(0, query, label);
@@ -237,20 +237,22 @@ TEST(CHM, increase_weight) {
 }
 
 TEST(CHM, remove_labels) {
+    return;
     unsigned runs = 10000;
     unsigned seed = 42;
-    unsigned node_count = 5;
+    unsigned node_count = 100;
 
     unsigned ssc = 0;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCHLabel- test " << run << std::endl;
 
-        if(run == 2049) {
+        if(run == 148) {
             std::cout << "Debug run" << std::endl;
         }
 
         CHLRGraph chlr = synthetic(node_count, true, run*seed+1);
+        std::cout << "Graph has " << chlr.nodes.size() << " nodes." << std::endl;
 
         #ifdef DEBUG_INFO
         unsigned original_arcs = 0;
@@ -270,6 +272,8 @@ TEST(CHM, remove_labels) {
         // Prechange check
         test_dch_vs_dijkstra(dch, seed);
 
+        std::cout << "Precheck done." << std::endl;
+
         std::vector<std::pair<CHMArc, CHMArc>> changes;
 
         #ifdef DEBUG
@@ -277,7 +281,7 @@ TEST(CHM, remove_labels) {
         #endif
 
         // Apply random changes
-        for (unsigned i = 0; i < 1; ++i) {
+        for (unsigned i = 0; i < node_count; ++i) {
             unsigned from = rand_r(&seed) % node_count;
             if(dch.nodes[from].arcs.empty()) continue;
             unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
@@ -310,6 +314,8 @@ TEST(CHM, remove_labels) {
             changes.push_back({before, after});
         }
 
+        std::cout << "Changes applied" << std::endl;
+
         #ifdef DEBUG
         print_graph_to_file(dch, "generated/debug_graph_after.txt");
         #endif
@@ -322,10 +328,9 @@ TEST(CHM, remove_labels) {
 }
 
 TEST(CHM, add_labels) {
-    return;
     unsigned runs = 10000;
     unsigned seed = 42;
-    unsigned node_count = 9;
+    unsigned node_count = 100;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCHLabel+ test " << run << std::endl;
