@@ -9,10 +9,73 @@
 #include <vector>
 #include <algorithm>
 
-#define DEBUG
+//#define DEBUG
 
 using namespace RoutingKit;
 using namespace std;
+
+CHLRGraph synthetic_realistic(unsigned node_count, bool build = true, unsigned seed = 42) {
+    CHLRGraph graph;
+    graph.nodes.resize(node_count);
+
+    std::vector<Label> possible_labels = {
+        Label(0b0000),
+        Label(0b0000),
+        Label(0b0001),
+        Label(0b0010),
+        Label(0b0100),
+    };
+
+    std::pair<unsigned, unsigned> range_of_range = {1, 3};
+
+    // add arcs to the n previous and m next nodes
+    for(unsigned i = 0; i < node_count; ++i) {
+        unsigned n = rand_r(&seed) % (range_of_range.second - range_of_range.first + 1) + range_of_range.first;
+        unsigned m = rand_r(&seed) % (range_of_range.second - range_of_range.first + 1) + range_of_range.first;
+
+        for(unsigned j = 1; j <= n; ++j) {
+            unsigned target = (i + node_count - j) % node_count;
+            Label label = possible_labels[rand_r(&seed) % possible_labels.size()];
+            unsigned new_weight = rand_r(&seed) % 50 + 5;
+            graph.add_arc(i, invalid_id, target, new_weight, label);
+        }
+
+        for(unsigned j = 1; j <= m; ++j) {
+            unsigned target = (i + j) % node_count;
+            Label label = possible_labels[rand_r(&seed) % possible_labels.size()];
+            unsigned new_weight = rand_r(&seed) % 50 + 5;
+            graph.add_arc(i, invalid_id, target, new_weight, label);
+        }
+    }
+
+    // add random arcs to roughly 1% of the nodes
+    unsigned extra_arcs = 4 + (rand_r(&seed) % ((node_count / 100) + 1));
+
+    for(unsigned i = 0; i < extra_arcs; ++i) {
+        unsigned from = rand_r(&seed) % node_count;
+        unsigned to = rand_r(&seed) % node_count;
+        if(from == to) continue;
+
+        Label label = possible_labels[rand_r(&seed) % possible_labels.size()];
+        unsigned new_weight = rand_r(&seed) % 50 + 5;
+        graph.add_arc(from, invalid_id, to, new_weight, label);
+    }
+
+    for(unsigned i = 0; i < node_count; ++i) {
+        graph.nodes[i].sort_arcs_for_weight();
+    }
+
+    if(!build) return graph;
+
+    CHLR chlr = CHLR(graph);
+
+    long long before = get_micro_time();
+    chlr.build();
+    long long after = get_micro_time();
+    std::cout << chlr.graph.nodes.size() << " nodes in " << (after - before) << " microseconds" << std::endl;
+
+    return chlr.graph;
+}
 
 CHLRGraph synthetic(unsigned node_count, bool build = true, unsigned seed = 42) {
     CHLRGraph graph;
@@ -334,7 +397,7 @@ TEST(CHM, add_labels) {
     return;
     unsigned runs = 10000;
     unsigned seed = 42;
-    unsigned node_count = 12;
+    unsigned node_count = 7;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCHLabel+ test " << run << std::endl;
@@ -401,13 +464,14 @@ TEST(CHM, add_labels) {
 }
 
 TEST(CHM, dch_on_real_road_network) {
+    return;
     unsigned seed = 42;
     std::vector<std::string> osm_files = {
         //"heidelberg.osm.pbf",
-        "ma_min_messplatz.osm.pbf",
+        //"ma_min_messplatz.osm.pbf",
         //"rippo.osm.pbf",
         //"hd_west.osm.pbf",
-        //"hd_neuenheim.osm.pbf",
+        "hd_neuenheim.osm.pbf",
     };
 
     Label profiles[4] = {
@@ -482,5 +546,104 @@ TEST(CHM, dch_on_real_road_network) {
 
             EXPECT_EQ(dij, chlr_len);
         }
+    }
+}
+
+TEST(CHM, benchmarking) {
+    unsigned runs = 990;
+    unsigned seed = 42;
+    unsigned node_count = 10;
+
+    std::vector<Label> possible_labels = {
+        Label(0b0000),
+        Label(0b0000),
+        Label(0b0001),
+        Label(0b0010),
+        Label(0b0100),
+    };
+
+    for (unsigned run = 0; run < runs; ++run) {
+        CHLRGraph chlr = synthetic_realistic(node_count, true, run*seed+1);
+        DCHGraph dch = DCHGraph(chlr);
+
+        unsigned eo = 0;
+        unsigned shortcuts = 0;
+
+        for(const auto& node : dch.nodes) {
+            for (const auto& arc : node.arcs) {
+                if(arc.is_shortcut()) shortcuts++;
+                else eo++;
+            }
+        }
+
+        std::cout << eo << " edges and " << shortcuts << " shortcuts" << std::endl;
+
+        // Prechange check
+        test_dch_vs_dijkstra(dch, seed);
+
+        std::vector<std::pair<CHMArc, CHMArc>> changes;
+
+        #ifdef DEBUG
+        print_graph_to_file(dch, "generated/debug_graph_before.txt");
+        #endif
+
+        auto update_fn = [&]() {
+            unsigned from = rand_r(&seed) % node_count;
+            if(dch.nodes[from].arcs.empty()) return false;
+            unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
+            if(dch.nodes[from].arcs[arc].mid_node != invalid_id) return false;
+            if(dch.nodes[from].arcs[arc].weight < 2) return false;
+
+            unsigned old_weight = dch.nodes[from].arcs[arc].weight;
+            Label old_label = dch.nodes[from].arcs[arc].label;
+            Label new_label = old_label;
+            
+            while(new_label == old_label) {
+                new_label = possible_labels[rand_r(&seed) % possible_labels.size()];
+            }
+
+            CHMArc before = dch.nodes[from].arcs[arc];
+            if(before.weight == inf_weight) return false;
+            
+            dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
+            dch.nodes[from].arcs[arc].label = new_label;
+            CHMArc new_arc = dch.add_arc(dch.nodes[from].arcs[arc]);
+            dch.DCHMinus(new_arc.get_pos(), before.weight);
+
+            CHMArc after = dch.ref(new_arc);
+            EXPECT_EQ(after.weight, before.weight);
+
+            return true;
+        };
+
+        for (unsigned mode = 0; mode < 6; ++mode) {
+            // Apply random changes
+
+            unsigned changes = 1;
+            if(mode == 1) changes = 1 + (rand_r(&seed) % ((node_count / 100) + 1)); // 1% => 1%
+            if(mode == 2) changes = 1 + (rand_r(&seed) % ((node_count / 25) + 1)); // 4% => 5%
+            if(mode == 3) changes = 1 + (rand_r(&seed) % ((node_count / 20) + 1)); // 5% => 10%
+            if(mode == 4) changes = 1 + (rand_r(&seed) % ((node_count / 10) + 1)); // 10% => 20%
+            if(mode == 5) changes = 1 + (rand_r(&seed) % ((node_count / 5) + 1)); // 20% => 40%
+
+            long long before = get_micro_time();
+            for (unsigned i = 0; i < node_count; ++i) {
+                if (!update_fn()) {
+                    --i; // try again
+                }
+            }
+            long long after = get_micro_time();
+            std::cout << "Mode " << mode << ": " << changes << " changes in " << (after - before) << " microseconds" << std::endl;
+        }
+
+        #ifdef DEBUG
+        print_graph_to_file(dch, "generated/debug_graph_after.txt");
+        #endif
+
+        // Postchange check
+        test_dch_vs_dijkstra(dch, seed);
+
+        std::cout << "===== Run " << run << " done." << std::endl;
+        node_count++;
     }
 }

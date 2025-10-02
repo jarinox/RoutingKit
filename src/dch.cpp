@@ -22,6 +22,7 @@ CHLRGraph DCHGraph::to_chlr() {
 DCHGraph::DCHGraph(CHLRGraph& graph) {
     nodes.resize(graph.nodes.size());
     garbage.resize(graph.nodes.size());
+    backward_garbage.resize(graph.nodes.size());
 
     for (unsigned i = 0; i < graph.nodes.size(); ++i) {
         nodes[i].node_index = i;
@@ -38,18 +39,51 @@ DCHGraph::DCHGraph(CHLRGraph& graph) {
 
 CHMArc DCHGraph::add_arc(CHMArc arc) {
     arc.in_graph = true;
+    CHMArc forward = arc;
 
-    if(!garbage[arc.from].empty()) {
-        auto pos = garbage[arc.from].front();
-        garbage[arc.from].pop();
+    /*if(!garbage[arc.from].empty()) {
+        auto pos = garbage[arc.from].back();
+        assert(pos.node_index == arc.from);
+        garbage[arc.from].pop_back();
+
+        forward.arc_index = pos.arc_index; // set forward arc
+        nodes[arc.from].arcs[pos.arc_index] = forward;
+    } else {*/
+        forward.arc_index = nodes[arc.from].arcs.size();
+        nodes[arc.from].arcs.push_back(forward);
+    //}
+
+    /*if(!backward_garbage[arc.to].empty()) {
+        auto pos = backward_garbage[arc.to].back();
+        assert(pos.node_index == arc.to);
+        backward_garbage[arc.to].pop_back();
+
+        nodes[arc.from].arcs[forward.arc_index].twin = {pos.node_index, pos.arc_index};
+        arc.twin = {arc.from, forward.arc_index};
         arc.arc_index = pos.arc_index;
-        nodes[arc.from].arcs[pos.arc_index] = arc;
-    } else {
-        arc.arc_index = nodes[arc.from].arcs.size();
-        nodes[arc.from].arcs.push_back(arc);
-    }
+        nodes[arc.to].in_arcs[pos.arc_index] = arc;
+    } else {*/
+        arc.arc_index = nodes[arc.to].in_arcs.size();
+        nodes[arc.from].arcs[forward.arc_index].twin = {arc.to, arc.arc_index};
+        arc.twin = {arc.from, forward.arc_index};
+        nodes[arc.to].in_arcs.push_back(arc);
+    //}
 
-    return arc;
+
+    return forward;
+}
+
+void DCHGraph::update(CHMArc arc, unsigned weight, Label label) {
+    CHMArcPos pos = {arc.from, arc.arc_index};
+    CHMArcPos tpos = arc.twin;
+
+    CHMArc& orig = get(pos);
+    CHMArc& twin = nodes[tpos.node_index].in_arcs[tpos.arc_index];
+
+    orig.weight = weight;
+    orig.label = label;
+    twin.weight = weight;
+    twin.label = label;
 }
 
 void DCHGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
@@ -196,19 +230,18 @@ std::vector<CHMArc> DCHGraph::Ne(CHMArc p1) {
     if (nodes[p1.from].rank > nodes[p1.to].rank) {
         // p1 is a downward arc
         for (CHMArc p2 : nodes[p1.to].arcs) {
+            assert(p1.to == p2.from);
             if (nodes[p2.to].rank < nodes[p1.to].rank) continue;
             if (p2.to == p1.from) continue; // skip loops
             ne.push_back(p2);
         }
     } else {
         // p1 is an upward arc
-        for (CHMNode& node : nodes) {
-            for (CHMArc p2 : node.arcs) {
-                if (p2.to != p1.from) continue;
-                if (p2.from == p1.to) continue; // skip loops
-                if (nodes[p2.from].rank < nodes[p1.from].rank) continue;
-                ne.push_back(p2);
-            }
+        for (CHMArc p2 : in_arcs(p1.from)) {
+            assert(p2.to == p1.from);
+            if (p2.from == p1.to) continue; // skip loops
+            if (nodes[p2.from].rank < nodes[p1.from].rank) continue;
+            ne.push_back(p2);
         }
     }
 
@@ -269,15 +302,16 @@ void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
     while(!queue.empty()) {
         auto entry = queue.pop();
         auto p1 = entry.arc;
+        if(p1.weight == inf_weight) continue;
 
         auto ne = Ne(p1);
 
         for(const auto& p2 : ne) {
             if(p2.weight == inf_weight) continue;
-            CHMArc& child = ref(Np(p1, p2));
+            CHMArc child = ref(Np(p1, p2));
 
             if (p1.weight + p2.weight < child.weight) {
-                child.weight = p1.weight + p2.weight;
+                update(child, p1.weight + p2.weight, child.label);
                 queue.push(DCHQueueEntry{child, p1, p2, false}, *this);
             }
         }
@@ -318,49 +352,15 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
             possible_garbage.push_back({arc.from, arc.arc_index});
         }
         
-        ref(arc).weight = new_weight;
+        update(arc, new_weight, ref(arc).label);
     }
 
     for(const auto& pos : possible_garbage) {
         if(nodes[pos.node_index].arcs[pos.arc_index].weight == inf_weight) {
-            nodes[pos.node_index].arcs[pos.arc_index].in_graph = false;
-            garbage[pos.node_index].push(pos);
-        }
-    }
-}
-
-void DCHGraph::DCHLabel(CHMArcPos e_o_pos, Label l_n) {
-    CHMArc& e_o = get(e_o_pos);
-    Label l_o = e_o.label;
-
-    //assert(l_o.is_superset_of(l_n) && "DCHLabel can only be used to remove labels");
-
-    DCHQueue queue(nodes.size()*100+64);
-
-    queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), false}, *this);
-    e_o.label = l_n;
-
-    while(!queue.empty()) {
-        auto entry = queue.pop();
-        auto p1 = entry.arc;
-
-        bool stays_the_same = p1.is_shortcut() && (ref(p1).label == ref(entry.p1).label.unite(ref(entry.p2).label));
-        if(!stays_the_same) {
-            auto upward_shortcut_pairs = SCPPlus(p1);
-            for(std::pair<CHMArc, CHMArc> scp : upward_shortcut_pairs) {
-                CHMArc p2 = scp.first;
-                CHMArc& child = ref(scp.second);
-
-                if (p1.weight + p2.weight == child.weight) {
-                    queue.push(DCHQueueEntry{child, p1, p2, false}, *this);
-                }
-            }
-        }
-
-        if (p1.is_shortcut()) {
-            unsigned label_a = ref(entry.p1).label.get_label();
-            unsigned label_b = ref(entry.p2).label.get_label();
-            ref(p1).label = ref(entry.p1).label.unite(ref(entry.p2).label);
+            CHMArc& to_remove = nodes[pos.node_index].arcs[pos.arc_index];
+            to_remove.in_graph = false;
+            garbage[pos.node_index].push_back(pos);
+            backward_garbage[to_remove.to].push_back({to_remove.twin.node_index, to_remove.twin.arc_index});
         }
     }
 }

@@ -13,7 +13,8 @@ struct DCHArcPos {
 class DCHGraph {
 public:
     std::vector<CHMNode> nodes;
-    std::vector<std::queue<DCHArcPos>> garbage;
+    std::vector<std::vector<DCHArcPos>> garbage;
+    std::vector<std::vector<DCHArcPos>> backward_garbage;
     
     DCHGraph() = default;
     DCHGraph(CHLRGraph& graph);
@@ -41,6 +42,8 @@ public:
 
     std::vector<CHMArc> Ne(CHMArc arc);
     CHMArc Np(CHMArc p1, CHMArc p2);
+
+    void update(CHMArc arc, unsigned weight, Label label);
 
     std::vector<CHMArc> in_arcs(unsigned node) {
         std::vector<CHMArc> result;

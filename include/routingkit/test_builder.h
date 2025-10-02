@@ -76,7 +76,7 @@ public:
 
 class TestSetup {
 public:
-    SimpleOSMMultiProfileRoutingGraph graph;
+    SimpleOSMCarRoutingGraph graph;
     std::vector<unsigned> tail;
     ContractionHierarchy ch;
     CHLRGraph chg;
@@ -94,7 +94,7 @@ public:
         }
 
         std::cout << "Loading graph from " << path << std::endl;
-        graph = simple_load_osm_multi_profile_routing_graph_from_pbf(path);
+        graph = simple_load_osm_car_routing_graph_from_pbf(path);
         tail = invert_inverse_vector(graph.first_out);
 
         std::cout << "Building geo position to node mapping..." << std::endl;

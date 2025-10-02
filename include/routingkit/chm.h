@@ -34,6 +34,8 @@ public:
     Label label;
     unsigned cnt;
 
+    CHMArcPos twin;
+
     bool in_graph = false;
 
     CHMArc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label)
@@ -69,6 +71,7 @@ public:
     float lon;
 
     std::vector<CHMArc> arcs;
+    std::vector<CHMArc> in_arcs;
 };
 
 class CHMGraph {
