@@ -435,7 +435,6 @@ TEST(CHM, remove_labels) {
 }
 
 TEST(CHM, add_labels) {
-    return;
     unsigned runs = 10000;
     unsigned seed = 42;
     unsigned node_count = 7;

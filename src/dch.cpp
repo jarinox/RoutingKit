@@ -74,6 +74,11 @@ CHMArc DCHGraph::add_arc(CHMArc arc) {
 }
 
 void DCHGraph::update(CHMArc arc, unsigned weight, Label label) {
+    if(weight == inf_weight) {
+        invalidate(arc);
+        return;
+    }
+
     CHMArcPos pos = {arc.from, arc.arc_index};
     CHMArcPos tpos = arc.twin;
 
@@ -329,9 +334,7 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
     DCHQueue queue(nodes.size()*100+64);
 
     queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), true}, *this);
-    e_o.weight = w_n;
-
-    std::vector<DCHArcPos> possible_garbage;
+    update(e_o, w_n, e_o.label);
 
     while(!queue.empty()) {
         auto entry = queue.pop();
@@ -347,18 +350,8 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
         }
 
         unsigned new_weight = compute_weight(arc);
-
-        if(new_weight == inf_weight) {
-            possible_garbage.push_back({arc.from, arc.arc_index});
-        }
         
         update(arc, new_weight, ref(arc).label);
-    }
-
-    for(const auto& pos : possible_garbage) {
-        if(nodes[pos.node_index].arcs[pos.arc_index].weight == inf_weight) {
-            invalidate(nodes[pos.node_index].arcs[pos.arc_index]);
-        }
     }
 }
 
@@ -405,6 +398,7 @@ Label DCHGraph::compute_label(CHMArc arc) {
 
 
 void DCHGraph::DCHAlt(CHMArcPos e_o_pos, unsigned w_n) {
+    assert(false);
     CHMArc& e_o = get(e_o_pos);
     unsigned w_o = e_o.weight;
     
@@ -510,6 +504,7 @@ void DCHGraph::DCHAlt(CHMArcPos e_o_pos, unsigned w_n) {
 }
 
 void DCHGraph::invalidate(CHMArc arc) {
+    if(!nodes[arc.from].arcs[arc.arc_index].in_graph) return;
     CHMArc& e = ref(arc);
     e.weight = inf_weight;
     e.in_graph = false;
