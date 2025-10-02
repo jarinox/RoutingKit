@@ -41,19 +41,19 @@ CHMArc DCHGraph::add_arc(CHMArc arc) {
     arc.in_graph = true;
     CHMArc forward = arc;
 
-    /*if(!garbage[arc.from].empty()) {
+    if(!garbage[arc.from].empty()) {
         auto pos = garbage[arc.from].back();
         assert(pos.node_index == arc.from);
         garbage[arc.from].pop_back();
 
         forward.arc_index = pos.arc_index; // set forward arc
         nodes[arc.from].arcs[pos.arc_index] = forward;
-    } else {*/
+    } else {
         forward.arc_index = nodes[arc.from].arcs.size();
         nodes[arc.from].arcs.push_back(forward);
-    //}
+    }
 
-    /*if(!backward_garbage[arc.to].empty()) {
+    if(!backward_garbage[arc.to].empty()) {
         auto pos = backward_garbage[arc.to].back();
         assert(pos.node_index == arc.to);
         backward_garbage[arc.to].pop_back();
@@ -62,12 +62,12 @@ CHMArc DCHGraph::add_arc(CHMArc arc) {
         arc.twin = {arc.from, forward.arc_index};
         arc.arc_index = pos.arc_index;
         nodes[arc.to].in_arcs[pos.arc_index] = arc;
-    } else {*/
+    } else {
         arc.arc_index = nodes[arc.to].in_arcs.size();
         nodes[arc.from].arcs[forward.arc_index].twin = {arc.to, arc.arc_index};
         arc.twin = {arc.from, forward.arc_index};
         nodes[arc.to].in_arcs.push_back(arc);
-    //}
+    }
 
 
     return forward;
@@ -357,10 +357,7 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
 
     for(const auto& pos : possible_garbage) {
         if(nodes[pos.node_index].arcs[pos.arc_index].weight == inf_weight) {
-            CHMArc& to_remove = nodes[pos.node_index].arcs[pos.arc_index];
-            to_remove.in_graph = false;
-            garbage[pos.node_index].push_back(pos);
-            backward_garbage[to_remove.to].push_back({to_remove.twin.node_index, to_remove.twin.arc_index});
+            invalidate(nodes[pos.node_index].arcs[pos.arc_index]);
         }
     }
 }
@@ -510,4 +507,14 @@ void DCHGraph::DCHAlt(CHMArcPos e_o_pos, unsigned w_n) {
 
         }
     }
+}
+
+void DCHGraph::invalidate(CHMArc arc) {
+    CHMArc& e = ref(arc);
+    e.weight = inf_weight;
+    e.in_graph = false;
+    
+    garbage[e.from].push_back({e.from, e.arc_index});
+    assert(e.to == e.twin.node_index);
+    backward_garbage[e.to].push_back({e.twin.node_index, e.twin.arc_index});
 }

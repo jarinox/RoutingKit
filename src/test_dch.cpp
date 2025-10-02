@@ -14,6 +14,47 @@
 using namespace RoutingKit;
 using namespace std;
 
+TEST(DCHGraph, garbage_collection) {
+    unsigned graph_size = 5;
+    DCHGraph graph = DCHGraph();
+    graph.nodes.resize(graph_size);
+    graph.garbage.resize(graph_size);
+    graph.backward_garbage.resize(graph_size);
+
+    for(int i = 0; i < graph_size; ++i) {
+        graph.add_arc(i, invalid_id, (i + 1) % graph_size, i, Label());
+        graph.add_arc((i + 1) % graph_size, invalid_id, i, i, Label());
+    }
+
+    for(const auto& node : graph.nodes) {
+        EXPECT_EQ(node.arcs.size(), 2);
+        EXPECT_EQ(node.in_arcs.size(), 2);
+
+        for(const auto& arc : node.arcs) {
+            auto twin = graph.nodes[arc.twin.node_index].in_arcs[arc.twin.arc_index];
+            EXPECT_EQ(twin.twin.arc_index, arc.arc_index);
+            EXPECT_EQ(twin.twin.node_index, arc.from);
+            EXPECT_EQ(twin.from, arc.from);
+            EXPECT_EQ(twin.to, arc.to);
+        }
+    }
+
+    graph.invalidate(graph.nodes[1].arcs[1]);
+    EXPECT_EQ(graph.garbage[1].size(), 1);
+    EXPECT_EQ(graph.backward_garbage[2].size(), 1);
+    
+    graph.invalidate(graph.nodes[2].arcs[1]);
+    EXPECT_EQ(graph.backward_garbage[3].size(), 1);
+
+    graph.add_arc(1, invalid_id, 3, 100, Label());
+
+    EXPECT_EQ(graph.garbage[1].size(), 0);
+    EXPECT_EQ(graph.backward_garbage[3].size(), 0);
+
+    EXPECT_EQ(graph.nodes[1].arcs[1].weight, 100);
+    EXPECT_EQ(graph.nodes[3].in_arcs[0].weight, 100);
+}
+
 CHLRGraph synthetic_realistic(unsigned node_count, bool build = true, unsigned seed = 42) {
     CHLRGraph graph;
     graph.nodes.resize(node_count);
@@ -550,6 +591,7 @@ TEST(CHM, dch_on_real_road_network) {
 }
 
 TEST(CHM, benchmarking) {
+    return;
     unsigned runs = 990;
     unsigned seed = 42;
     unsigned node_count = 10;

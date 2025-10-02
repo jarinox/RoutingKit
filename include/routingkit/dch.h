@@ -44,19 +44,10 @@ public:
     CHMArc Np(CHMArc p1, CHMArc p2);
 
     void update(CHMArc arc, unsigned weight, Label label);
+    void invalidate(CHMArc arc);
 
     std::vector<CHMArc> in_arcs(unsigned node) {
-        std::vector<CHMArc> result;
-
-        for (const auto& n : nodes) {
-            for (const auto& arc : n.arcs) {
-                if (arc.to == node) {
-                    result.push_back(arc);
-                }
-            }
-        }
-
-        return result;
+        return nodes[node].in_arcs;
     }
 };
 
