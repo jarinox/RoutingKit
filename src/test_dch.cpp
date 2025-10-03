@@ -9,7 +9,7 @@
 #include <vector>
 #include <algorithm>
 
-//#define DEBUG
+#define DEBUG
 
 using namespace RoutingKit;
 using namespace std;
@@ -442,7 +442,7 @@ TEST(CHM, add_labels) {
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCHLabel+ test " << run << std::endl;
 
-        if(run == 27) {
+        if(run == 5978) {
             std::cout << "Debug run" << std::endl;
         }
 

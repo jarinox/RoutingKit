@@ -70,10 +70,10 @@ CHMArc DCHGraph::add_arc(CHMArc arc) {
     }
 
 
-    return forward;
+    return ref(forward);
 }
 
-void DCHGraph::update(CHMArc arc, unsigned weight, Label label) {
+void DCHGraph::update_weight(CHMArc arc, unsigned weight) {
     if(weight == inf_weight) {
         invalidate(arc);
         return;
@@ -83,12 +83,11 @@ void DCHGraph::update(CHMArc arc, unsigned weight, Label label) {
     CHMArcPos tpos = arc.twin;
 
     CHMArc& orig = get(pos);
+
     CHMArc& twin = nodes[tpos.node_index].in_arcs[tpos.arc_index];
 
     orig.weight = weight;
-    orig.label = label;
     twin.weight = weight;
-    twin.label = label;
 }
 
 void DCHGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
@@ -301,7 +300,7 @@ void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
 
     DCHQueue queue(nodes.size()*100+64);
 
-    e_o.weight = w_n;
+    update_weight(e_o, w_n);
     queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), false}, *this);
 
     while(!queue.empty()) {
@@ -313,11 +312,11 @@ void DCHGraph::DCHMinus(CHMArcPos e_o_pos, unsigned w_n) {
 
         for(const auto& p2 : ne) {
             if(p2.weight == inf_weight) continue;
-            CHMArc child = ref(Np(p1, p2));
+            CHMArc child = Np(p1, p2);
 
             if (p1.weight + p2.weight < child.weight) {
-                update(child, p1.weight + p2.weight, child.label);
-                queue.push(DCHQueueEntry{child, p1, p2, false}, *this);
+                update_weight(child, p1.weight + p2.weight);
+                queue.push(DCHQueueEntry{ref(child), p1, p2, false}, *this);
             }
         }
     }
@@ -334,7 +333,7 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
     DCHQueue queue(nodes.size()*100+64);
 
     queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), true}, *this);
-    update(e_o, w_n, e_o.label);
+    update_weight(e_o, w_n);
 
     while(!queue.empty()) {
         auto entry = queue.pop();
@@ -350,8 +349,7 @@ void DCHGraph::DCHPlus(CHMArcPos e_o_pos, unsigned w_n) {
         }
 
         unsigned new_weight = compute_weight(arc);
-        
-        update(arc, new_weight, ref(arc).label);
+        update_weight(arc, new_weight);
     }
 }
 

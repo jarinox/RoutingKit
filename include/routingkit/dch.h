@@ -43,7 +43,7 @@ public:
     std::vector<CHMArc> Ne(CHMArc arc);
     CHMArc Np(CHMArc p1, CHMArc p2);
 
-    void update(CHMArc arc, unsigned weight, Label label);
+    void update_weight(CHMArc arc, unsigned weight);
     void invalidate(CHMArc arc);
 
     std::vector<CHMArc> in_arcs(unsigned node) {
