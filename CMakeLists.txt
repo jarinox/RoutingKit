@@ -8,6 +8,7 @@ enable_testing()
 
 find_package(GTest REQUIRED)
 find_package(ZLIB REQUIRED)
+find_package(GDAL REQUIRED)
 
 cmake_minimum_required(VERSION 3.10)
 
@@ -44,8 +45,8 @@ endforeach()
 
 # Create a static library from all non-main source files
 add_library(routingkit_common STATIC ${NONMAIN_SRC_FILES} ${HEADER_FILES})
-target_include_directories(routingkit_common PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(routingkit_common PUBLIC ZLIB::ZLIB)
+target_include_directories(routingkit_common PUBLIC ${CMAKE_SOURCE_DIR}/include ${GDAL_INCLUDE_DIRS})
+target_link_libraries(routingkit_common PUBLIC ZLIB::ZLIB ${GDAL_LIBRARIES})
 
 
 # Create executables and link with the common library
