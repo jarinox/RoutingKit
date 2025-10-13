@@ -4,6 +4,7 @@
 #include <routingkit/chlr.h>
 #include <routingkit/chm.h>
 #include <routingkit/label.h>
+#include <routingkit/geo_dist.h>
 
 struct DCHArcPos {
     unsigned node_index;
@@ -47,6 +48,7 @@ public:
     void invalidate(CHMArc arc);
 
     CHMArc CMS(CHMArcPos e_o, unsigned w_n, Label l_n);
+    unsigned AStar(unsigned from, unsigned to, Label profile, bool use_heuristic = true);
 
     std::vector<CHMArc> in_arcs(unsigned node) {
         return nodes[node].in_arcs;

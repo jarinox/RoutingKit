@@ -159,7 +159,7 @@ std::pair<unsigned, std::vector<unsigned>> DCHGraph::dijkstra(unsigned from, uns
             head.push_back(arc.to);
             tail.push_back(arc.from);
             labels.push_back(arc.label);
-            assert(arc.weight > 0);
+            assert(arc.weight >= 0);
             weights.push_back(arc.weight);
             arc_count++;
         }
@@ -189,6 +189,52 @@ std::pair<unsigned, std::vector<unsigned>> DCHGraph::dijkstra(unsigned from, uns
     }
 
     return {dij.get_distance_to(to), path};
+}
+
+unsigned dist(CHMNode from, CHMNode to) {
+    return geo_dist(from.lat, from.lon, to.lat, to.lon);
+}
+
+unsigned DCHGraph::AStar(unsigned from, unsigned to, Label profile, bool use_heuristic) {
+    std::vector<unsigned> g(nodes.size(), inf_weight);
+    std::vector<unsigned> f(nodes.size(), inf_weight);
+
+    MinIDQueue queue(nodes.size());
+    queue.push({from, 0});
+
+    auto heuristic = [&](CHMNode a, CHMNode b) {
+        if(!use_heuristic) return 0u;
+        return dist(a, b);
+    };
+
+    g[from] = 0;
+    f[from] = heuristic(nodes[from], nodes[to]);
+
+    while(!queue.empty()) {
+        auto current = queue.pop();
+        if(current.id == to) {
+            return g[to];
+        }
+
+        for(const auto& arc : nodes[current.id].arcs) {
+            if(arc.weight == inf_weight) continue;
+            if(!arc.label.is_allowed(profile)) continue;
+
+            unsigned tentative_g = g[current.id] + arc.weight;
+            if(tentative_g < g[arc.to]) {
+                g[arc.to] = tentative_g;
+                f[arc.to] = tentative_g + heuristic(nodes[arc.to], nodes[to]);
+
+                if(queue.contains_id(arc.to)) {
+                    queue.decrease_key({arc.to, f[arc.to]});
+                } else {
+                    queue.push({arc.to, f[arc.to]});
+                }
+            }
+        }
+    }
+
+    return inf_weight;
 }
 
 /// Computes the upward shortcut pairs <p2, child> of p1 as defined by Zhang and Yu (2022)
