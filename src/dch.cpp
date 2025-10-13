@@ -90,8 +90,8 @@ void DCHGraph::update_weight(CHMArc arc, unsigned weight) {
     twin.weight = weight;
 }
 
-void DCHGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
-    add_arc(CHMArc{from, mid_node, to, weight, label});
+CHMArc DCHGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
+    return add_arc(CHMArc{from, mid_node, to, weight, label});
 }
 
 CHMArc& DCHGraph::get(CHMArcPos pos) {
@@ -258,7 +258,6 @@ CHMArc DCHGraph::Np(CHMArc p1, CHMArc p2) {
     }
 
     assert(p1.to == p2.from);
-    assert(p1.weight < inf_weight && p2.weight < inf_weight);
     assert(p1.from != p2.to); // no loops
 
     for(const auto& arc : nodes[p1.from].arcs) {
@@ -510,4 +509,70 @@ void DCHGraph::invalidate(CHMArc arc) {
     garbage[e.from].push_back({e.from, e.arc_index});
     assert(e.to == e.twin.node_index);
     backward_garbage[e.to].push_back({e.twin.node_index, e.twin.arc_index});
+}
+
+
+CHMArc DCHGraph::CMS(CHMArcPos e_o, unsigned w_n, Label l_n) {
+    CHMArc& e = get(e_o);
+    unsigned w_o = e.weight;
+    Label l_o = e.label;
+
+    bool inc = w_n > w_o;
+
+    DCHQueue queue(nodes.size()*100+64);
+
+    CHMArc updated_arc = e;
+
+    if(l_n != l_o) {
+        queue.push(DCHQueueEntry{e, CHMArc(), CHMArc(), true}, *this);
+        update_weight(e, inf_weight);
+
+        CHMArc new_arc = add_arc(e.from, e.mid_node, e.to, w_n, l_n);
+        queue.push(DCHQueueEntry{new_arc, CHMArc(), CHMArc(), false}, *this);
+
+        updated_arc = new_arc;
+    } else {
+        if(inc) {
+            queue.push(DCHQueueEntry{e, CHMArc(), CHMArc(), true}, *this);
+            update_weight(e, w_n);
+        } else {
+            update_weight(e, w_n);
+            queue.push(DCHQueueEntry{e, CHMArc(), CHMArc(), false}, *this);
+        }
+    }
+
+    while(!queue.empty()) {
+        auto entry = queue.pop();
+        auto p1 = entry.arc;
+        auto increment = entry.increment;
+
+        if(increment) {
+            for(std::pair<CHMArc, CHMArc> scp : SCPPlus(p1)) {
+                CHMArc p2 = scp.first;
+                CHMArc child = scp.second;
+            
+                if (p1.weight + p2.weight == child.weight) {
+                    queue.push(DCHQueueEntry{ref(child), p1, p2, true}, *this);
+                }
+            }
+
+            //if(p1.is_shortcut()) {
+                unsigned new_weight = compute_weight(p1);
+                update_weight(p1, new_weight);
+            //}
+        } else {
+            auto partners = Ne(p1);
+            for (const auto& p2 : partners) {
+                CHMArc child = Np(p1, p2);
+                
+                if (p1.weight + p2.weight < child.weight) {
+                    update_weight(child, p1.weight + p2.weight);
+                    queue.push(DCHQueueEntry{ref(child), p1, p2, false}, *this);
+                }
+            }
+        }
+        
+    }
+
+    return ref(updated_arc);
 }

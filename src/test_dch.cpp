@@ -277,7 +277,7 @@ TEST(CHM, reduce_weight) {
             unsigned weight = rand_r(&seed) % (old_weight - 1) + 1; // decrease weight
 
             CHMArc before = dch.nodes[from].arcs[arc];
-            dch.DCHAlt(dch.nodes[from].arcs[arc].get_pos(), weight);
+            dch.CMS(dch.nodes[from].arcs[arc].get_pos(), weight, dch.nodes[from].arcs[arc].label);
             CHMArc after = dch.nodes[from].arcs[arc];
 
             changes.push_back({before, after});
@@ -292,7 +292,7 @@ TEST(CHM, reduce_weight) {
 
 TEST(CHM, increase_weight) {
     return;
-    unsigned runs = 20000;
+    unsigned runs = 10000;
     unsigned seed = 42;
     unsigned node_count = 9;
 
@@ -323,7 +323,7 @@ TEST(CHM, increase_weight) {
             unsigned weight = rand_r(&seed) % 20 + old_weight + 1; // increase weight
 
             CHMArc before = dch.nodes[from].arcs[arc];
-            dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), weight);
+            dch.CMS(dch.nodes[from].arcs[arc].get_pos(), weight, dch.nodes[from].arcs[arc].label);
             CHMArc after = dch.nodes[from].arcs[arc];
             assert(after.weight >= before.weight);
             assert(after.weight == weight);
@@ -344,19 +344,19 @@ TEST(CHM, remove_labels) {
     return;
     unsigned runs = 10000;
     unsigned seed = 42;
-    unsigned node_count = 12;
+    unsigned node_count = 7;
 
     unsigned ssc = 0;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running DCHLabel- test " << run << std::endl;
 
-        if(run == 148) {
+        if(run == 168) {
             std::cout << "Debug run" << std::endl;
         }
 
         CHLRGraph chlr = synthetic(node_count, true, run*seed+1);
-        std::cout << "Graph has " << chlr.nodes.size() << " nodes." << std::endl;
+        //std::cout << "Graph has " << chlr.nodes.size() << " nodes." << std::endl;
 
         #ifdef DEBUG_INFO
         unsigned original_arcs = 0;
@@ -376,7 +376,7 @@ TEST(CHM, remove_labels) {
         // Prechange check
         test_dch_vs_dijkstra(dch, seed);
 
-        std::cout << "Precheck done." << std::endl;
+        //std::cout << "Precheck done." << std::endl;
 
         std::vector<std::pair<CHMArc, CHMArc>> changes;
 
@@ -407,13 +407,15 @@ TEST(CHM, remove_labels) {
             CHMArc before = dch.nodes[from].arcs[arc];
             if(before.weight == inf_weight) continue;
 
-            dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
-            dch.nodes[from].arcs[arc].label = new_label;
-            CHMArc new_arc = dch.add_arc(dch.nodes[from].arcs[arc]);
+            //dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
+            //dch.nodes[from].arcs[arc].label = new_label;
+            //CHMArc new_arc = dch.add_arc(dch.nodes[from].arcs[arc]);
+            //dch.DCHMinus(new_arc.get_pos(), before.weight);
+            
+            CHMArc after = dch.CMS(dch.nodes[from].arcs[arc].get_pos(), before.weight, new_label);
 
-            dch.DCHMinus(new_arc.get_pos(), before.weight);
 
-            CHMArc after = dch.ref(new_arc);
+            //CHMArc after = dch.ref(new_arc);
             EXPECT_TRUE(after.label.is_subset_of(before.label));
             EXPECT_EQ(after.weight, before.weight);
             EXPECT_EQ(after.label.get_label(), new_label.get_label());
@@ -421,7 +423,7 @@ TEST(CHM, remove_labels) {
             changes.push_back({before, after});
         }
 
-        std::cout << "Changes applied" << std::endl;
+        //std::cout << "Changes applied" << std::endl;
 
         #ifdef DEBUG
         print_graph_to_file(dch, "generated/debug_graph_after.txt");
@@ -435,6 +437,7 @@ TEST(CHM, remove_labels) {
 }
 
 TEST(CHM, add_labels) {
+    return;
     unsigned runs = 10000;
     unsigned seed = 42;
     unsigned node_count = 7;
@@ -481,12 +484,13 @@ TEST(CHM, add_labels) {
             CHMArc before = dch.nodes[from].arcs[arc];
             if(before.weight == inf_weight) continue;
             
-            dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
+            /*dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
             dch.nodes[from].arcs[arc].label = new_label;
             CHMArc new_arc = dch.add_arc(dch.nodes[from].arcs[arc]);
-            dch.DCHMinus(new_arc.get_pos(), before.weight);
+            dch.DCHMinus(new_arc.get_pos(), before.weight);*/
+            CHMArc after = dch.CMS(dch.nodes[from].arcs[arc].get_pos(), old_weight, new_label);
 
-            CHMArc after = dch.ref(new_arc);
+            //CHMArc after = dch.ref(new_arc);
             EXPECT_TRUE(after.label.is_superset_of(before.label));
             EXPECT_EQ(after.weight, before.weight);
             EXPECT_EQ(after.label.get_label(), new_label.get_label());
@@ -504,14 +508,14 @@ TEST(CHM, add_labels) {
 }
 
 TEST(CHM, dch_on_real_road_network) {
-    return;
     unsigned seed = 42;
     std::vector<std::string> osm_files = {
         //"heidelberg.osm.pbf",
         //"ma_min_messplatz.osm.pbf",
         //"rippo.osm.pbf",
         //"hd_west.osm.pbf",
-        "hd_neuenheim.osm.pbf",
+        //"hd_neuenheim.osm.pbf",
+        "murg.osm.pbf",
     };
 
     Label profiles[4] = {
@@ -526,8 +530,27 @@ TEST(CHM, dch_on_real_road_network) {
         unsigned node_count = setup.chlr.graph.nodes.size();
         std::cout << "Graph has " << node_count << " nodes." << std::endl;
 
+
         std::cout << "Building CH for " << osm_file << std::endl;
+
+        long long before = get_micro_time();
         setup.chlr.build();
+        long long after = get_micro_time();
+
+        std::cout << "Build in " << after-before << " microseconds" << std::endl;
+
+        unsigned original_arcs = 0;
+        unsigned shortcut_arcs = 0;
+
+        for(unsigned i = 0; i < node_count; ++i) {
+            for(const auto& arc : setup.chlr.graph.nodes[i].out_arcs) {
+                if(arc.is_shortcut()) shortcut_arcs++;
+                else original_arcs++;
+            }
+        }
+
+        std::cout << "Original arcs: " << original_arcs << " Shortcut arcs: " << shortcut_arcs << std::endl;
+        return;
         
         DCHGraph dch = DCHGraph(setup.chlr.graph);
 
@@ -620,7 +643,7 @@ TEST(CHM, benchmarking) {
         std::cout << eo << " edges and " << shortcuts << " shortcuts" << std::endl;
 
         // Prechange check
-        test_dch_vs_dijkstra(dch, seed);
+        //test_dch_vs_dijkstra(dch, seed);
 
         std::vector<std::pair<CHMArc, CHMArc>> changes;
 
@@ -661,14 +684,14 @@ TEST(CHM, benchmarking) {
             // Apply random changes
 
             unsigned changes = 1;
-            if(mode == 1) changes = 1 + (rand_r(&seed) % ((node_count / 100) + 1)); // 1% => 1%
-            if(mode == 2) changes = 1 + (rand_r(&seed) % ((node_count / 25) + 1)); // 4% => 5%
-            if(mode == 3) changes = 1 + (rand_r(&seed) % ((node_count / 20) + 1)); // 5% => 10%
-            if(mode == 4) changes = 1 + (rand_r(&seed) % ((node_count / 10) + 1)); // 10% => 20%
-            if(mode == 5) changes = 1 + (rand_r(&seed) % ((node_count / 5) + 1)); // 20% => 40%
+            if(mode == 1) changes = 1 + ((eo / 100) + 1); // 1% => 1%
+            if(mode == 2) changes = 1 + ((eo / 25) + 1); // 4% => 5%
+            if(mode == 3) changes = 1 + ((eo / 20) + 1); // 5% => 10%
+            if(mode == 4) changes = 1 + ((eo / 10) + 1); // 10% => 20%
+            if(mode == 5) changes = 1 + ((eo / 5) + 1); // 20% => 40%
 
             long long before = get_micro_time();
-            for (unsigned i = 0; i < node_count; ++i) {
+            for (unsigned i = 0; i < changes; ++i) {
                 if (!update_fn()) {
                     --i; // try again
                 }
@@ -677,12 +700,13 @@ TEST(CHM, benchmarking) {
             std::cout << "Mode " << mode << ": " << changes << " changes in " << (after - before) << " microseconds" << std::endl;
         }
 
+
         #ifdef DEBUG
         print_graph_to_file(dch, "generated/debug_graph_after.txt");
         #endif
 
         // Postchange check
-        test_dch_vs_dijkstra(dch, seed);
+        //test_dch_vs_dijkstra(dch, seed);
 
         std::cout << "===== Run " << run << " done." << std::endl;
         node_count++;

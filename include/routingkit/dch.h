@@ -21,7 +21,7 @@ public:
     CHLRGraph to_chlr();
 
     CHMArc add_arc(CHMArc arc);
-    void add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
+    CHMArc add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
     CHMArc& get(CHMArcPos pos);
     CHMArc& ref(CHMArc arc);
 
@@ -45,6 +45,8 @@ public:
 
     void update_weight(CHMArc arc, unsigned weight);
     void invalidate(CHMArc arc);
+
+    CHMArc CMS(CHMArcPos e_o, unsigned w_n, Label l_n);
 
     std::vector<CHMArc> in_arcs(unsigned node) {
         return nodes[node].in_arcs;
