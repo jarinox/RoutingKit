@@ -4,6 +4,7 @@
 #include <routingkit/id_queue.h>
 #include <routingkit/label.h>
 #include <routingkit/timestamp_flag.h>
+#include <routingkit/geo_dist.h>
 
 #include <algorithm>
 #include <functional>
@@ -85,6 +86,9 @@ class CHLR {
     CHLR(CHLRGraph& graph) : graph(graph) { order.resize(graph.nodes.size()); }
 
     void build(bool print_progress = false);
+    void rebuild_with_order(bool print_progress = false);
+
+    unsigned AStar(unsigned from, unsigned to, Label restriction, bool zero_cost_heuristic = false);
 };
 
 unsigned estimate_node_importance(const CHLRGraph& graph, unsigned node_id);

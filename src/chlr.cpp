@@ -78,7 +78,7 @@ void CHLR::build(bool print_progress) {
         node.sort_arcs_for_weight();
         for (auto &in_arc : graph.nodes[node_id].in_arcs) {
             if (in_arc.other_node == node_id) continue;  // Skip self-loops
-            if (has_been_contracted.is_set(in_arc.other_node))// assert(false);
+            if (has_been_contracted.is_set(in_arc.other_node))
                 continue;  // Ensure rank(other_node) > rank(node_id)
 
             DijkstraLR dijkstra(graph, in_arc.other_node);
@@ -86,7 +86,7 @@ void CHLR::build(bool print_progress) {
             for (auto &out_arc : graph.nodes[node_id].out_arcs) {
                 if (in_arc.other_node == out_arc.other_node)
                     continue;  // Skip self-loops
-                if (has_been_contracted.is_set(out_arc.other_node))// assert(false);
+                if (has_been_contracted.is_set(out_arc.other_node))
                     continue;  // Ensure rank(other_node) > rank(node_id)
                 
 
@@ -96,19 +96,93 @@ void CHLR::build(bool print_progress) {
 
                 unsigned shortcut_weight = in_arc.weight + out_arc.weight;
 
-                //unsigned witness_weight = dijkstra.witness_search(
-                //    out_arc.other_node, R, [&](unsigned bypass_node) {
-                //        return (node_id != bypass_node) && (graph.nodes[bypass_node].rank > graph.nodes[node_id].rank);
-                //    });
+                unsigned witness_weight = dijkstra.witness_search(
+                    out_arc.other_node, R, [&](unsigned bypass_node) {
+                        return (node_id != bypass_node) && (graph.nodes[bypass_node].rank > graph.nodes[node_id].rank);
+                    });
 
-                contraction_graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                //contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                //graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                if (shortcut_weight < witness_weight) {
+                    auto need_add = graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                    if(need_add)
+                        contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+
+                }
             }
         }
 
         graph.remove_incident_arcs(node_id);
+    }
+
+    graph = std::move(contraction_graph);
+}
+
+
+void CHLR::rebuild_with_order(bool print_progress) {
+    // Delete all shortcuts
+    for(auto& node : graph.nodes) {
+        node.out_arcs.erase(
+            std::remove_if(node.out_arcs.begin(), node.out_arcs.end(),
+                           [](const CHLRArc &arc) { return arc.is_shortcut(); }),
+            node.out_arcs.end());
+        node.in_arcs.erase(
+            std::remove_if(node.in_arcs.begin(), node.in_arcs.end(),
+                           [](const CHLRArc &arc) { return arc.is_shortcut(); }),
+            node.in_arcs.end());
+    }
+
+
+    CHLRGraph contraction_graph = this->graph;
+    unsigned node_cnt = graph.nodes.size();
+    
+
+    unsigned rank = 1;
+    for(unsigned node_id : order) {
+
+        CHLRNode &node = graph.nodes[node_id];
+        assert(node.rank == rank);
+
+        if (print_progress)
+            std::cout << "Contracting, queue left " << node_cnt-rank << " arc combinations " << graph.nodes[node_id].in_arcs.size() * graph.nodes[node_id].out_arcs.size() << std::endl;
+
+
+        // Contract the node
+        node.sort_arcs_for_weight();
+        for (auto &in_arc : graph.nodes[node_id].in_arcs) {
+            if (in_arc.other_node == node_id) continue;  // Skip self-loops
+            if (rank > graph.nodes[in_arc.other_node].rank)
+                continue;  // Ensure rank(other_node) > rank(node_id)
+
+            DijkstraLR dijkstra(graph, in_arc.other_node);
+
+            for (auto &out_arc : graph.nodes[node_id].out_arcs) {
+                if (in_arc.other_node == out_arc.other_node)
+                    continue;  // Skip self-loops
+                if (rank > graph.nodes[out_arc.other_node].rank)
+                    continue;  // Ensure rank(other_node) > rank(node_id)
+                
+
+                Label newLabel = in_arc.label.unite(out_arc.label);
+                Label R = newLabel;
+                R.invert();
+
+                unsigned shortcut_weight = in_arc.weight + out_arc.weight;
+
+                unsigned witness_weight = dijkstra.witness_search(
+                    out_arc.other_node, R, [&](unsigned bypass_node) {
+                        return (node_id != bypass_node) && (graph.nodes[bypass_node].rank > graph.nodes[node_id].rank);
+                    });
+
+                if (shortcut_weight < witness_weight) {
+                    auto need_add = graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                    if(need_add)
+                        contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+
+                }
+            }
+        }
+
+        graph.remove_incident_arcs(node_id);
+        ++rank;
     }
 
     graph = std::move(contraction_graph);
@@ -248,16 +322,25 @@ CHLRArc& CHLRGraph::get_reverse_arc(CHLRArc &arc, unsigned start_node) {
 
 bool CHLRGraph::add_or_reduce_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
     for (auto &arc : nodes[from].out_arcs) {
-        if (arc.other_node == to && arc.mid_node == mid_node && arc.label == label) {
+        if (arc.other_node == to) {
             if (arc.weight > weight) {
-                auto& reversed_arc = get_reverse_arc(arc, from);
+                if(label.is_subset_of(arc.label)) {
+                    // New arc is shorter and has fewer restrictions, replace existing shortcut
+                    auto& reversed_arc = get_reverse_arc(arc, from);
 
-                arc.weight = weight;
-                reversed_arc.weight = weight;
+                    arc.weight = weight;
+                    arc.label = label;
 
-                return true;
+                    reversed_arc.weight = weight;
+                    reversed_arc.label = label;
+                    return true;
+                }
+                // new arc is shorter but has more restrictions, continue search or add new arc
             } else {
-                return false;
+                if(arc.label.is_subset_of(label)) {
+                    // Existing arc is shorter and has fewer restrictions, do not add new shortcut
+                    return false;
+                }
             }
         }
     }
@@ -295,25 +378,6 @@ void CHLRQuery::extract_directional_graphs() {
                 continue; // skip self-loops
             }
 
-            bool skip_arc = false;
-            /*for(auto other_arc : graph.nodes[i].out_arcs) {
-                if(other_arc.mid_node == arc.mid_node && other_arc.other_node == arc.other_node && other_arc.label == arc.label) {
-                    continue;
-                }
-
-                if(other_arc.other_node != arc.other_node) {
-                    continue;
-                }
-
-                if(other_arc.dominates(arc)) {
-                    skip_arc = true;
-                    break;
-                }
-            }
-
-            if(skip_arc) {
-                continue; // skip dominated arcs
-            }*/
 
             if (from_rank < to_rank) {
                 forward.nodes[i].out_arcs.push_back(arc);
@@ -446,7 +510,7 @@ void CHLRQuery::settle(
     unsigned current_distance = p.key;
     assert(current_distance == distance[current_node]);
 
-    //was_pushed.set(current_node);
+    was_pushed.set(current_node);
 
     if (other_was_pushed.is_set(current_node)) {
         if(current_distance + other_distance[current_node] < best_distance) {
@@ -461,7 +525,6 @@ void CHLRQuery::settle(
         if (arc.weight >= inf_weight) continue;
 
         unsigned next_node = arc.other_node;
-        was_pushed.set(next_node);
         unsigned new_distance = current_distance + arc.weight;
 
         if (new_distance < distance[next_node]) {
@@ -577,4 +640,61 @@ std::vector<CHLRArc> CHLRQuery::get_arc_path() {
     }
 
     return expanded_path;
+}
+
+
+unsigned CHLR::AStar(unsigned from, unsigned to, Label restriction, bool zero_cost_heuristic) {
+    auto& from_node = graph.nodes[from];
+    auto& to_node = graph.nodes[to];
+
+    auto heuristic = [&](unsigned node) {
+        if(zero_cost_heuristic)
+            return 0u;
+        return (unsigned)geo_dist(from_node.lat, from_node.lon, graph.nodes[node].lat, graph.nodes[node].lon);
+    };
+
+    MinIDQueue queue = MinIDQueue(graph.nodes.size());
+    std::vector<unsigned> f(graph.nodes.size(), inf_weight);
+    std::vector<unsigned> g(graph.nodes.size(), inf_weight);
+    TimestampFlags was_pushed(graph.nodes.size());
+
+    g[from] = 0;
+    f[from] = heuristic(from);
+    queue.push({from, f[from]});
+
+    while (!queue.empty()) {
+        auto p = queue.pop();
+        unsigned current_node = p.id;
+        unsigned current_f = p.key;
+
+        if (current_node == to) {
+            return g[to];
+        }
+
+        assert(current_f == f[current_node]);
+
+        for (unsigned j = 0; j < graph.nodes[current_node].out_arcs.size(); ++j) {
+            const auto arc = graph.nodes[current_node].out_arcs[j];
+            if (!arc.label.is_allowed(restriction)) continue;
+            if (arc.is_shortcut()) continue;
+            if (arc.weight >= inf_weight) continue;
+
+            unsigned next_node = arc.other_node;
+            unsigned new_g = g[current_node] + arc.weight;
+            unsigned new_f = new_g + heuristic(next_node);
+
+            if (new_g < g[next_node]) {
+                g[next_node] = new_g;
+                f[next_node] = new_f;
+
+                if (!queue.contains_id(next_node)) {
+                    queue.push({next_node, new_f});
+                } else {
+                    queue.decrease_key({next_node, new_f});
+                }
+            }
+        }
+    }
+
+    return inf_weight;
 }

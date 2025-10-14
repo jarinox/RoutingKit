@@ -9,7 +9,7 @@
 #include <vector>
 #include <algorithm>
 
-#define DEBUG
+//#define DEBUG
 
 using namespace RoutingKit;
 using namespace std;
