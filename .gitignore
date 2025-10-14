@@ -5,6 +5,9 @@ lib/
 # OSM PBF files
 *.original.pbf
 
+# Avoid Areas (too large for GitHub, even with LFS)
+graphs/*.tif
+
 # IDE
 .idea/
 .vscode/

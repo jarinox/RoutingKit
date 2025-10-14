@@ -11,6 +11,7 @@ public:
     ~GeoTiffReader();
 
     double get_value(double lon, double lat) const;
+    bool line_intersects(double lon1, double lat1, double lon2, double lat2) const;
 
 private:
     class GeoTiffReaderImpl;
