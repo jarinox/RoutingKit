@@ -14,6 +14,7 @@
 #include <vector>
 #include <unordered_set>
 #include <map>
+#include <functional>
 
 using namespace RoutingKit;
 
@@ -59,7 +60,7 @@ class CHLRNode {
 };
 
 enum CHDirection { FORWARD, BACKWARD };
-typedef void (*CHLRRebuildCallback)(CHLRArc arc, unsigned from, unsigned to);
+using CHLRRebuildCallback = std::function<void(CHLRArc arc, unsigned from, unsigned to)>;
 
 class CHLRGraph {
    public:

@@ -23,7 +23,7 @@ struct CHLRChange {
     unsigned new_weight;
 };
 
-//#define DEBUG
+#define DEBUG
 
 using namespace RoutingKit;
 using namespace std;
@@ -514,6 +514,7 @@ TEST(CHM, add_labels) {
 }
 
 TEST(CHM, dch_on_real_road_network) {
+    return;
     unsigned seed = 42;
     std::vector<std::string> osm_files = {
         //"heidelberg.osm.pbf",
@@ -712,19 +713,23 @@ TEST(CHM, benchmarking) {
 }
 
 TEST(CHM, partial_rebuild) {
-    unsigned runs = 990;
-    unsigned seed = 42;
-    unsigned node_count = 5;
+    unsigned runs = 50000;
+    unsigned seed = 32;
+    unsigned node_count = 7;
 
     for (unsigned run = 0; run < runs; ++run) {
         CHLRGraph chg = synthetic(node_count, false, seed);
 
         CHLR chlr = CHLR(chg);
+        chlr.build();
         
         unsigned changes = 1;
         unsigned rebuild_until_rank = 0;
 
         DCHGraph dch = DCHGraph(chlr.graph);
+
+        std::cout << "Pre check." << std::endl;
+        test_dch_vs_dijkstra(dch, seed);
 
         unsigned from = rand_r(&seed) % node_count;
         if(chg.nodes[from].out_arcs.empty()) continue;
@@ -748,11 +753,22 @@ TEST(CHM, partial_rebuild) {
         
         std::vector<CHMArc> affected_arcs;
         CHLRRebuildCallback callback = [&](CHLRArc arc, unsigned from, unsigned to) {
-            
+            bool exists = false;
+            for(const auto& a : dch.nodes[from].arcs) {
+                if(a.to == to && a.mid_node == arc.mid_node && a.label == arc.label && a.weight == arc.weight) {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if(!exists) {
+                auto new_arc = dch.add_arc(from, arc.mid_node, to, arc.weight, arc.label);
+                affected_arcs.push_back(new_arc);
+            }
         };
 
 
-        chlr.rebuild_with_order(nullptr, rebuild_until_rank);
+        chlr.rebuild_with_order(callback, rebuild_until_rank);
         
 
         unsigned w_n = change.new_weight;
@@ -765,6 +781,12 @@ TEST(CHM, partial_rebuild) {
 
         queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), true}, dch);
         dch.update_weight(e_o, w_n);
+
+        for(auto arc : affected_arcs) {
+            //unsigned new_weight = dch.compute_weight(arc);
+            queue.push(DCHQueueEntry{arc, CHMArc(), CHMArc(), true}, dch);
+            //dch.update_weight(arc, new_weight);
+        }
 
         while(!queue.empty()) {
             auto entry = queue.pop();
@@ -782,5 +804,8 @@ TEST(CHM, partial_rebuild) {
             unsigned new_weight = dch.compute_weight(arc);
             dch.update_weight(arc, new_weight);
         }
+
+        std::cout << "Post-rebuild check." << std::endl;
+        test_dch_vs_dijkstra(dch, seed);
     }
 }
