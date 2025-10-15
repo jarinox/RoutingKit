@@ -117,7 +117,7 @@ void CHLR::build(bool print_progress) {
 }
 
 
-void CHLR::rebuild_with_order(bool print_progress) {
+void CHLR::rebuild_with_order(CHLRRebuildCallback callback, unsigned stop_at_rank, bool print_progress) {
     // Delete all shortcuts
     for(auto& node : graph.nodes) {
         node.out_arcs.erase(
@@ -137,9 +137,10 @@ void CHLR::rebuild_with_order(bool print_progress) {
 
     unsigned rank = 1;
     for(unsigned node_id : order) {
-
         CHLRNode &node = graph.nodes[node_id];
         assert(node.rank == rank);
+
+        if(rank >= stop_at_rank) break;
 
         if (print_progress)
             std::cout << "Contracting, queue left " << node_cnt-rank << " arc combinations " << graph.nodes[node_id].in_arcs.size() * graph.nodes[node_id].out_arcs.size() << std::endl;
@@ -174,8 +175,12 @@ void CHLR::rebuild_with_order(bool print_progress) {
 
                 if (shortcut_weight < witness_weight) {
                     auto need_add = graph.add_or_reduce_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
-                    if(need_add)
+                    if(need_add) {
+                        if(callback != nullptr) {
+                            callback(CHLRArc{.other_node = out_arc.other_node, .mid_node = node_id, .weight = shortcut_weight, .label = newLabel}, in_arc.other_node, out_arc.other_node);
+                        }
                         contraction_graph.add_arc(in_arc.other_node, node_id, out_arc.other_node, shortcut_weight, newLabel);
+                    }
 
                 }
             }

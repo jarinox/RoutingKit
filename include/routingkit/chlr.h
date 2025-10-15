@@ -59,6 +59,7 @@ class CHLRNode {
 };
 
 enum CHDirection { FORWARD, BACKWARD };
+typedef void (*CHLRRebuildCallback)(CHLRArc arc, unsigned from, unsigned to);
 
 class CHLRGraph {
    public:
@@ -86,7 +87,7 @@ class CHLR {
     CHLR(CHLRGraph& graph) : graph(graph) { order.resize(graph.nodes.size()); }
 
     void build(bool print_progress = false);
-    void rebuild_with_order(bool print_progress = false);
+    void rebuild_with_order(CHLRRebuildCallback callback, unsigned stop_at_rank, bool print_progress = false);
 
     unsigned AStar(unsigned from, unsigned to, Label restriction, bool zero_cost_heuristic = false);
 };

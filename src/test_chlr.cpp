@@ -109,7 +109,7 @@ TEST(CHLR, rebuild_using_order) {
 
         std::cout << "Rebuilding CH with existing order..." << std::endl;
         long long before_rebuild = get_micro_time();
-        setup.chlr.rebuild_with_order();
+        setup.chlr.rebuild_with_order(nullptr, inf_weight);
         long long after_rebuild = get_micro_time();
         std::cout << "Rebuild in " << after_rebuild-before_rebuild << " microseconds" << std::endl;
 
