@@ -23,12 +23,14 @@ public:
 
     CHMArc add_arc(CHMArc arc);
     CHMArc add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
+    CHMArc add_or_reduce_arc(CHMArc arc);
     CHMArc& get(CHMArcPos pos);
     CHMArc& ref(CHMArc arc);
 
     std::vector<std::pair<CHMArc, CHMArc>> SCPPlus(CHMArc p1);
     std::vector<std::pair<CHMArc, CHMArc>> SCPMinus(CHMArc child);
     unsigned compute_weight(CHMArc arc);
+    void compute_weight_midnode(CHMArc arc);
     Label compute_label(CHMArc arc);
 
     void DCHPlus(CHMArcPos e_o_pos, unsigned w_n);
@@ -44,7 +46,8 @@ public:
     std::vector<CHMArc> Ne(CHMArc arc);
     CHMArc Np(CHMArc p1, CHMArc p2);
 
-    void update_weight(CHMArc arc, unsigned weight);
+    std::pair<CHMArc&, CHMArc&> twins(CHMArc arc);
+    void update_weight(CHMArc arc, unsigned weight, bool force = false);
     void invalidate(CHMArc arc);
 
     CHMArc CMS(CHMArcPos e_o, unsigned w_n, Label l_n);
@@ -53,6 +56,8 @@ public:
     std::vector<CHMArc> in_arcs(unsigned node) {
         return nodes[node].in_arcs;
     }
+
+    void DCHPlusMod(CHMArcPos e_o_pos, unsigned w_n);
 };
 
 struct DCHQueueEntry {

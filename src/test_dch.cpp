@@ -715,9 +715,12 @@ TEST(CHM, benchmarking) {
 TEST(CHM, partial_rebuild) {
     unsigned runs = 50000;
     unsigned seed = 32;
-    unsigned node_count = 7;
+    unsigned node_count = 5;
 
     for (unsigned run = 0; run < runs; ++run) {
+        if(run == 1427){
+            std::cout << "Debug run" << std::endl;
+        }
         CHLRGraph chg = synthetic(node_count, false, seed);
 
         CHLR chlr = CHLR(chg);
@@ -725,33 +728,35 @@ TEST(CHM, partial_rebuild) {
         
         unsigned changes = 1;
         unsigned rebuild_until_rank = 0;
-
+        
         DCHGraph dch = DCHGraph(chlr.graph);
+        print_graph_to_file(dch, "generated/debug_graph_before.txt");
 
         std::cout << "Pre check." << std::endl;
         test_dch_vs_dijkstra(dch, seed);
 
         unsigned from = rand_r(&seed) % node_count;
-        if(chg.nodes[from].out_arcs.empty()) continue;
-        unsigned arc = rand_r(&seed) % chg.nodes[from].out_arcs.size();
-        if(chg.nodes[from].out_arcs[arc].is_shortcut()) continue;
+        if(chlr.graph.nodes[from].out_arcs.empty()) continue;
+        unsigned arc = rand_r(&seed) % chlr.graph.nodes[from].out_arcs.size();
+        if(chlr.graph.nodes[from].out_arcs[arc].is_shortcut()) continue;
 
-        auto& out_arc = chg.nodes[from].out_arcs[arc];
-        auto& in_arc = chg.get_reverse_arc(out_arc, from);
+        auto& out_arc = chlr.graph.nodes[from].out_arcs[arc];
+        auto& in_arc = chlr.graph.get_reverse_arc(out_arc, from);
 
         unsigned old_weight = out_arc.weight;
-        unsigned weight = old_weight + rand_r(&seed) % 50 + 1;
+        unsigned weight = old_weight + (rand_r(&seed) % 50) + 1;
 
         CHLRChange change = {from, arc, weight};
 
         out_arc.weight = weight;
         in_arc.weight = weight;
 
-        rebuild_until_rank = std::max(std::min(chg.nodes[from].rank, chg.nodes[out_arc.other_node].rank), rebuild_until_rank);
+        rebuild_until_rank = std::max(std::min(chlr.graph.nodes[from].rank, chlr.graph.nodes[out_arc.other_node].rank), rebuild_until_rank);
         std::cout << "Rebuilding until rank " << rebuild_until_rank << std::endl;
     
+        dch = DCHGraph(chlr.graph);
+        DCHQueue queue(dch.nodes.size()*100+64);
         
-        std::vector<CHMArc> affected_arcs;
         CHLRRebuildCallback callback = [&](CHLRArc arc, unsigned from, unsigned to) {
             bool exists = false;
             for(const auto& a : dch.nodes[from].arcs) {
@@ -762,8 +767,8 @@ TEST(CHM, partial_rebuild) {
             }
 
             if(!exists) {
-                auto new_arc = dch.add_arc(from, arc.mid_node, to, arc.weight, arc.label);
-                affected_arcs.push_back(new_arc);
+                auto new_arc = dch.add_or_reduce_arc(CHMArc{from, arc.mid_node, to, arc.weight, arc.label});
+                queue.push(DCHQueueEntry{new_arc, CHMArc(), CHMArc(), true}, dch);
             }
         };
 
@@ -771,39 +776,49 @@ TEST(CHM, partial_rebuild) {
         chlr.rebuild_with_order(callback, rebuild_until_rank);
         
 
-        unsigned w_n = change.new_weight;
+        unsigned w_n = weight;
         CHMArc& e_o = dch.nodes[change.from].arcs[change.arc];
-        unsigned w_o = e_o.weight;
+        unsigned w_o = old_weight;
 
         assert(w_o < w_n && "DCHPlusMod can only be used to increase weights");
 
-        DCHQueue queue(dch.nodes.size()*100+64);
 
+        dch.update_weight(e_o, old_weight);
         queue.push(DCHQueueEntry{e_o, CHMArc(), CHMArc(), true}, dch);
         dch.update_weight(e_o, w_n);
-
-        for(auto arc : affected_arcs) {
-            //unsigned new_weight = dch.compute_weight(arc);
-            queue.push(DCHQueueEntry{arc, CHMArc(), CHMArc(), true}, dch);
-            //dch.update_weight(arc, new_weight);
-        }
 
         while(!queue.empty()) {
             auto entry = queue.pop();
             auto arc = entry.arc;
+            bool increment = entry.increment;
 
-            for(std::pair<CHMArc, CHMArc> scp : dch.SCPPlus(arc)) {
-                CHMArc p2 = scp.first;
-                CHMArc child = scp.second;
+            if(increment) {
+                for(std::pair<CHMArc, CHMArc> scp : dch.SCPPlus(arc)) {
+                    CHMArc p2 = scp.first;
+                    CHMArc child = scp.second;
 
-                if (arc.weight + p2.weight == child.weight) {
-                    queue.push(DCHQueueEntry{child, arc, p2, true}, dch);
+                    if (arc.weight + p2.weight == child.weight) {
+                        queue.push(DCHQueueEntry{child, arc, p2, true}, dch);
+                    }
+                }
+
+                dch.compute_weight_midnode(arc);
+            } else {
+                auto ne = dch.Ne(arc);
+
+                for(const auto& p2 : ne) {
+                    if(p2.weight == inf_weight) continue;
+                    CHMArc child = dch.Np(arc, p2);
+
+                    if (arc.weight + p2.weight < child.weight) {
+                        dch.update_weight(child, arc.weight + p2.weight);
+                        queue.push(DCHQueueEntry{ref(child), arc, p2, false}, dch);
+                    }
                 }
             }
-
-            unsigned new_weight = dch.compute_weight(arc);
-            dch.update_weight(arc, new_weight);
         }
+
+        print_graph_to_file(dch, "generated/debug_graph_after.txt");
 
         std::cout << "Post-rebuild check." << std::endl;
         test_dch_vs_dijkstra(dch, seed);

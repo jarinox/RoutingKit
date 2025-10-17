@@ -73,21 +73,25 @@ CHMArc DCHGraph::add_arc(CHMArc arc) {
     return ref(forward);
 }
 
-void DCHGraph::update_weight(CHMArc arc, unsigned weight) {
-    if(weight == inf_weight) {
+void DCHGraph::update_weight(CHMArc arc, unsigned weight, bool force) {
+    if(weight == inf_weight && !force) {
         invalidate(arc);
         return;
     }
 
+    auto t = twins(arc);
+    t.first.weight = weight;
+    t.second.weight = weight;
+}
+
+std::pair<CHMArc&, CHMArc&> DCHGraph::twins(CHMArc arc) {
     CHMArcPos pos = {arc.from, arc.arc_index};
     CHMArcPos tpos = arc.twin;
 
     CHMArc& orig = get(pos);
-
     CHMArc& twin = nodes[tpos.node_index].in_arcs[tpos.arc_index];
 
-    orig.weight = weight;
-    twin.weight = weight;
+    return {orig, twin};
 }
 
 CHMArc DCHGraph::add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
@@ -322,7 +326,7 @@ std::vector<std::pair<CHMArc, CHMArc>> DCHGraph::SCPMinus(CHMArc child) {
 
     for (CHMArc p1 : nodes[child.from].arcs) {
         if (nodes[child.from].rank < nodes[p1.to].rank) continue; // ensure p1 is downward
-        if (child.mid_node != p1.to) continue; // ensure p1 is a part of the child
+        //if (child.mid_node != p1.to) continue; // ensure p1 is a part of the child
 
         for (CHMArc p2 : nodes[p1.to].arcs) {
             if (p2.to != child.to) continue;
@@ -416,6 +420,34 @@ unsigned DCHGraph::compute_weight(CHMArc arc) {
     }
 
     return k;
+}
+
+void DCHGraph::compute_weight_midnode(CHMArc arc) {
+    unsigned k = inf_weight;
+    unsigned mid_node = arc.mid_node;
+
+    auto t = twins(arc);
+
+    if(arc.mid_node == invalid_id) {
+        t.first.weight = ref(arc).weight;
+        t.second.weight = ref(arc).weight;
+        return;
+    }
+
+    for(std::pair<CHMArc, CHMArc> scp : SCPMinus(arc)) {
+        CHMArc p1 = scp.first;
+        CHMArc p2 = scp.second;
+
+        if (p1.weight + p2.weight < k) {
+            k = p1.weight + p2.weight;
+            mid_node = p1.to;
+        }
+    }
+
+    t.first.weight = k;
+    t.second.weight = k;
+    t.first.mid_node = mid_node;
+    t.second.mid_node = mid_node;
 }
 
 Label DCHGraph::compute_label(CHMArc arc) {
@@ -621,4 +653,26 @@ CHMArc DCHGraph::CMS(CHMArcPos e_o, unsigned w_n, Label l_n) {
     }
 
     return ref(updated_arc);
+}
+
+CHMArc DCHGraph::add_or_reduce_arc(CHMArc arc) {
+    for(const auto& existing_arc : nodes[arc.from].arcs) {
+        if(existing_arc.is_shortcut() && existing_arc.to == arc.to && existing_arc.label == arc.label && existing_arc.in_graph) {
+            if(arc.weight < existing_arc.weight) {
+                auto t = twins(existing_arc);
+                t.first.weight = arc.weight;
+                t.second.weight = arc.weight;
+                t.first.mid_node = arc.mid_node;
+                t.second.mid_node = arc.mid_node;
+            }
+            return ref(existing_arc);
+        }
+    }
+
+    return add_arc(arc);
+} 
+
+
+void DCHGraph::DCHPlusMod(CHMArcPos e_o_pos, unsigned w_n) {
+    
 }
