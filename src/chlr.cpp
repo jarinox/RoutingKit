@@ -140,7 +140,7 @@ void CHLR::rebuild_with_order(CHLRRebuildCallback callback, unsigned stop_at_ran
         CHLRNode &node = graph.nodes[node_id];
         assert(node.rank == rank);
 
-        if(rank >= stop_at_rank) break;
+        if(rank > stop_at_rank) break;
 
         if (print_progress)
             std::cout << "Contracting, queue left " << node_cnt-rank << " arc combinations " << graph.nodes[node_id].in_arcs.size() * graph.nodes[node_id].out_arcs.size() << std::endl;

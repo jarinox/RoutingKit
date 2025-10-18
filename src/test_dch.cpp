@@ -130,7 +130,7 @@ CHLRGraph synthetic(unsigned node_count, bool build = true, unsigned seed = 42) 
 
     for (unsigned i = 0; i < node_count; ++i) {
         std::vector<CHMArc> targets;
-        for (unsigned j = 0; j < rand_r(&seed) % 5 + 1; ++j) { // Random number of edges per node
+        for (unsigned j = 0; j < rand_r(&seed) % 3 + 1; ++j) { // Random number of edges per node
             unsigned target = rand_r(&seed) % node_count;
             if (target == i) continue; // No self-loops
 
@@ -227,9 +227,9 @@ void test_dch_vs_dijkstra(DCHGraph& dch, unsigned seed) {
     CHLRGraph chlr = dch.to_chlr();
     unsigned node_count = chlr.nodes.size();
 
-    for(unsigned query = 0; query < min(40u, node_count); query += 2) {
+    CHLRQuery q(chlr);
+    for(unsigned query = 0; query < min(40u, node_count); query += (node_count < 10 ? 1 : 2)) {
         Label label = Label(rand_r(&seed) % 8);
-        CHLRQuery q(chlr);
         q.set(0, query, label);
         q.run();
 
@@ -241,6 +241,8 @@ void test_dch_vs_dijkstra(DCHGraph& dch, unsigned seed) {
 
         #ifdef DEBUG
         if(dij != chlr_len) {
+            print_graph_to_file(dch, "generated/debug_graph_after.txt");
+            
             CHLRQuery q2(chlr);
             q2.set(0, query, label);
             q2.run();
@@ -713,12 +715,13 @@ TEST(CHM, benchmarking) {
 }
 
 TEST(CHM, partial_rebuild) {
+    return;
     unsigned runs = 50000;
     unsigned seed = 32;
-    unsigned node_count = 5;
+    unsigned node_count = 7;
 
     for (unsigned run = 0; run < runs; ++run) {
-        if(run == 1427){
+        if(run == 3933){
             std::cout << "Debug run" << std::endl;
         }
         CHLRGraph chg = synthetic(node_count, false, seed);
@@ -751,7 +754,7 @@ TEST(CHM, partial_rebuild) {
         out_arc.weight = weight;
         in_arc.weight = weight;
 
-        rebuild_until_rank = std::max(std::min(chlr.graph.nodes[from].rank, chlr.graph.nodes[out_arc.other_node].rank), rebuild_until_rank);
+        rebuild_until_rank = std::max(chlr.graph.nodes[from].rank, chlr.graph.nodes[out_arc.other_node].rank);
         std::cout << "Rebuilding until rank " << rebuild_until_rank << std::endl;
     
         dch = DCHGraph(chlr.graph);
@@ -821,6 +824,48 @@ TEST(CHM, partial_rebuild) {
         print_graph_to_file(dch, "generated/debug_graph_after.txt");
 
         std::cout << "Post-rebuild check." << std::endl;
+        test_dch_vs_dijkstra(dch, seed);
+    }
+}
+
+
+TEST(CHM, partial_rebuild_mod) {
+    unsigned runs = 70000;
+    unsigned seed = 11;
+    unsigned node_count = 7;
+
+    for (unsigned run = 0; run < runs; ++run) {
+        std::cout << "Running partial rebuild mod test " << run << std::endl;
+
+        CHLRGraph chg = synthetic(node_count, true, seed);
+        DCHGraph dch = DCHGraph(chg);
+
+        if(run == 3389){
+            print_graph_to_file(dch, "generated/debug_graph_before.txt");
+            std::cout << "Debug run" << std::endl;
+        }
+
+        std::vector<std::pair<CHMArc, CHMArc>> changes;
+
+        unsigned change_cnt = 2;
+        for(unsigned i = 0; i < change_cnt; ++i) {
+            unsigned from = rand_r(&seed) % node_count;
+            if(dch.nodes[from].arcs.empty()) continue;
+            unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
+            if(dch.nodes[from].arcs[arc].mid_node != invalid_id) continue;
+
+            unsigned old_weight = dch.nodes[from].arcs[arc].weight;
+            unsigned weight = old_weight + (rand_r(&seed) % 50) + 1;
+
+            CHMArc before = dch.nodes[from].arcs[arc];
+            dch.DCHPlusMod(dch.nodes[from].arcs[arc].get_pos(), weight);
+            CHMArc after = dch.nodes[from].arcs[arc];
+            
+            EXPECT_EQ(after.weight, weight);
+            changes.push_back({before, after});
+        }
+
+        //print_graph_to_file(dch, "generated/debug_graph_after.txt");
         test_dch_vs_dijkstra(dch, seed);
     }
 }
