@@ -680,13 +680,11 @@ void DCHGraph::DCHPlusMod(CHMArcPos e_o_pos, unsigned w_n) {
     assert(!nodes[from].arcs[arc].is_shortcut());
 
     auto& out_arc = nodes[from].arcs[arc];
-    auto& in_arc = nodes[out_arc.twin.node_index].in_arcs[out_arc.twin.arc_index];
 
     unsigned w_o = out_arc.weight;
     assert(w_o < w_n && "DCHPlusMod can only be used to increase weights");
 
-    out_arc.weight = w_n;
-    in_arc.weight = w_n;
+    update_weight(out_arc, w_n);
 
     unsigned rebuild_until_rank = std::max(nodes[from].rank, nodes[out_arc.to].rank);
     DCHQueue queue(nodes.size()*100+64);
@@ -702,10 +700,12 @@ void DCHGraph::DCHPlusMod(CHMArcPos e_o_pos, unsigned w_n) {
 
         if(!exists) {
             auto new_arc = add_or_reduce_arc(CHMArc{from, arc.mid_node, to, arc.weight, arc.label});
-            queue.push(DCHQueueEntry{new_arc, CHMArc(), CHMArc(), true}, *this);
+            queue.push(DCHQueueEntry{new_arc, CHMArc(), CHMArc(), false}, *this);
         }
     };
 
+
+    
     CHLRGraph chg = to_chlr();
     CHLR chlr = CHLR(chg);
 
@@ -731,7 +731,7 @@ void DCHGraph::DCHPlusMod(CHMArcPos e_o_pos, unsigned w_n) {
             std::sort(scps.begin(), scps.end(), [](const std::pair<CHMArc, CHMArc>& a, const std::pair<CHMArc, CHMArc>& b) {
                 return a.first.weight + a.second.weight < b.second.weight + b.first.weight;
             });
-            
+
             for(std::pair<CHMArc, CHMArc> scp : scps) {
                 CHMArc p2 = scp.first;
                 CHMArc child = scp.second;

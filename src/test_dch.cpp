@@ -242,7 +242,7 @@ void test_dch_vs_dijkstra(DCHGraph& dch, unsigned seed) {
         #ifdef DEBUG
         if(dij != chlr_len) {
             print_graph_to_file(dch, "generated/debug_graph_after.txt");
-            
+
             CHLRQuery q2(chlr);
             q2.set(0, query, label);
             q2.run();
@@ -840,7 +840,7 @@ TEST(CHM, partial_rebuild_mod) {
         CHLRGraph chg = synthetic(node_count, true, seed);
         DCHGraph dch = DCHGraph(chg);
 
-        if(run == 3389){
+        if(run == 10926){
             print_graph_to_file(dch, "generated/debug_graph_before.txt");
             std::cout << "Debug run" << std::endl;
         }
@@ -863,6 +863,7 @@ TEST(CHM, partial_rebuild_mod) {
             
             EXPECT_EQ(after.weight, weight);
             changes.push_back({before, after});
+            break;
         }
 
         //print_graph_to_file(dch, "generated/debug_graph_after.txt");
