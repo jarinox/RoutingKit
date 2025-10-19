@@ -28,6 +28,7 @@ struct CHLRChange {
 using namespace RoutingKit;
 using namespace std;
 
+
 TEST(DCHQueue, extraction_order) {
     DCHGraph graph;
     graph.nodes.resize(3);
@@ -863,8 +864,8 @@ TEST(CHM, partial_rebuild) {
 
 TEST(CHM, partial_rebuild_mod) {
     unsigned runs = 70000;
-    unsigned seed = 11;
-    unsigned node_count = 7;
+    unsigned seed = 12;
+    unsigned node_count = 9;
 
     for (unsigned run = 0; run < runs; ++run) {
         std::cout << "Running partial rebuild mod test " << run << std::endl;
@@ -879,7 +880,7 @@ TEST(CHM, partial_rebuild_mod) {
 
         std::vector<std::pair<CHMArc, CHMArc>> changes;
 
-        unsigned change_cnt = 2;
+        unsigned change_cnt = 18;
         for(unsigned i = 0; i < change_cnt; ++i) {
             unsigned from = rand_r(&seed) % node_count;
             if(dch.nodes[from].arcs.empty()) continue;
@@ -895,7 +896,6 @@ TEST(CHM, partial_rebuild_mod) {
             
             EXPECT_EQ(after.weight, weight);
             changes.push_back({before, after});
-            break;
         }
 
         //print_graph_to_file(dch, "generated/debug_graph_after.txt");

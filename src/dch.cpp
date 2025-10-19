@@ -111,11 +111,11 @@ void DCHQueue::push(DCHQueueEntry entry, DCHGraph& graph) {
     unsigned arc_rank = std::min(graph.nodes[entry.arc.from].rank, graph.nodes[entry.arc.to].rank);
     unsigned arc_priority = arc_rank*100+__builtin_popcount(entry.arc.label.get_label());
 
-    if(queue.contains_id(arc_priority)) {
+    if(arc_priority_to_index.find(arc_priority) != arc_priority_to_index.end()) {
         if(is_in_queue.find(entry.arc) != is_in_queue.end()) {
             return;
         }
-        unsigned_to_arc[queue.get_key(arc_priority)].push(entry);
+        unsigned_to_arc[arc_priority_to_index[arc_priority]].push(entry);
     } else {
         queue.push({arc_priority, static_cast<unsigned>(unsigned_to_arc.size())});
         unsigned_to_arc.push_back(std::queue<DCHQueueEntry>{});
@@ -126,14 +126,14 @@ void DCHQueue::push(DCHQueueEntry entry, DCHGraph& graph) {
 }
 
 DCHQueueEntry DCHQueue::pop() {
-    auto vec = queue.peek();
+    auto vec = queue.top();
 
-    auto entry = unsigned_to_arc[vec.key].front();
-    unsigned_to_arc[vec.key].pop();
+    auto entry = unsigned_to_arc[vec.second].front();
+    unsigned_to_arc[vec.second].pop();
 
     is_in_queue.erase(entry.arc);
 
-    if(unsigned_to_arc[vec.key].empty()) {
+    if(unsigned_to_arc[vec.second].empty()) {
         queue.pop();
     }
 

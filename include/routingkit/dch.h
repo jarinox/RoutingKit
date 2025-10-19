@@ -5,6 +5,7 @@
 #include <routingkit/chm.h>
 #include <routingkit/label.h>
 #include <routingkit/geo_dist.h>
+#include <bits/stdc++.h>
 
 struct DCHArcPos {
     unsigned node_index;
@@ -68,11 +69,14 @@ struct DCHQueueEntry {
 };
 
 class DCHQueue {
-    MinIDQueue queue;
+    std::priority_queue<std::pair<int, int>,
+        std::vector<std::pair<int, int>>,
+        std::greater<std::pair<int, int>>> queue;
     std::vector<std::queue<DCHQueueEntry>> unsigned_to_arc;
+    std::unordered_map<unsigned, unsigned> arc_priority_to_index;
     std::set<CHMArc> is_in_queue; // another option would be to uniquely identify by CHMArcPos
 public:
-    DCHQueue(unsigned size) : queue(size), unsigned_to_arc(size) {}
+    DCHQueue(unsigned size = 0) {}
 
     bool empty() const {
         return queue.empty();
