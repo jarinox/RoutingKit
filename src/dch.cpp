@@ -684,7 +684,7 @@ void DCHGraph::DCHPlusMod(CHMArcPos e_o_pos, unsigned w_n) {
     unsigned w_o = out_arc.weight;
     assert(w_o < w_n && "DCHPlusMod can only be used to increase weights");
 
-    update_weight(out_arc, w_n);
+    update_weight(out_arc, w_n, true);
 
     unsigned rebuild_until_rank = std::max(nodes[from].rank, nodes[out_arc.to].rank);
     DCHQueue queue(nodes.size()*100+64);
@@ -759,4 +759,27 @@ void DCHGraph::DCHPlusMod(CHMArcPos e_o_pos, unsigned w_n) {
             }
         }
     }
+}
+
+
+CHMArc DCHGraph::UpdateArc(CHMArcPos e_o_pos, unsigned w_n, Label l_n) {
+    CHMArc e = get(e_o_pos);
+    unsigned w_o = e.weight;
+    Label l_o = e.label;
+
+    if(l_o == l_n) {
+        if(w_n > w_o) {
+            DCHPlusMod(e_o_pos, w_n);
+        } else if(w_n < w_o) {
+            DCHMinus(e_o_pos, w_n);
+        }
+    } else {
+        DCHPlusMod(e_o_pos, inf_weight);
+        e.weight = inf_weight;
+        e.label = l_n;
+        e = add_arc(e);
+        DCHMinus(e.get_pos(), w_n);
+    }
+
+    return ref(e);
 }

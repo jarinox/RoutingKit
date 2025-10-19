@@ -59,6 +59,7 @@ public:
     }
 
     void DCHPlusMod(CHMArcPos e_o_pos, unsigned w_n);
+    CHMArc UpdateArc(CHMArcPos e_o_pos, unsigned w_n, Label l_n);
 };
 
 struct DCHQueueEntry {

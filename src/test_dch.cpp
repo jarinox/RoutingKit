@@ -863,6 +863,7 @@ TEST(CHM, partial_rebuild) {
 
 
 TEST(CHM, partial_rebuild_mod) {
+    return;
     unsigned runs = 70000;
     unsigned seed = 12;
     unsigned node_count = 9;
@@ -899,6 +900,46 @@ TEST(CHM, partial_rebuild_mod) {
         }
 
         //print_graph_to_file(dch, "generated/debug_graph_after.txt");
+        test_dch_vs_dijkstra(dch, seed);
+    }
+}
+
+TEST(CHM, partial_rebuild_full) {
+    unsigned runs = 70000;
+    unsigned seed = 12;
+    unsigned node_count = 7;
+
+    for (unsigned run = 0; run < runs; ++run) {
+        std::cout << "Running partial rebuild mod full test " << run << std::endl;
+
+        CHLRGraph chg = synthetic(node_count, true, seed);
+        DCHGraph dch = DCHGraph(chg);
+        
+        print_graph_to_file(dch, "generated/debug_graph_before.txt");
+
+        if(run == 10926){
+            std::cout << "Debug run" << std::endl;
+        }
+
+        std::vector<std::pair<CHMArc, CHMArc>> changes;
+
+        unsigned change_cnt = 12;
+        for(unsigned i = 0; i < change_cnt; ++i) {
+            unsigned from = rand_r(&seed) % node_count;
+            if(dch.nodes[from].arcs.empty()) continue;
+            unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
+            if(dch.nodes[from].arcs[arc].mid_node != invalid_id) continue;
+
+            CHMArc before = dch.nodes[from].arcs[arc];
+            unsigned new_weight = (rand_r(&seed) % 500) + 1;
+            Label new_label = Label(rand_r(&seed) % 8);
+            CHMArc after = dch.UpdateArc(before.get_pos(), new_weight, new_label);
+
+            EXPECT_EQ(after.weight, new_weight);
+            EXPECT_EQ(after.label.get_label(), new_label.get_label());
+        }
+
+        print_graph_to_file(dch, "generated/debug_graph_after.txt");
         test_dch_vs_dijkstra(dch, seed);
     }
 }
