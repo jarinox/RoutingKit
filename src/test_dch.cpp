@@ -28,6 +28,38 @@ struct CHLRChange {
 using namespace RoutingKit;
 using namespace std;
 
+TEST(DCHQueue, extraction_order) {
+    DCHGraph graph;
+    graph.nodes.resize(3);
+    graph.garbage.resize(3);
+    graph.backward_garbage.resize(3);
+
+    graph.add_arc(0, invalid_id, 1, 10, Label());
+    graph.add_arc(0, invalid_id, 2, 15, Label());
+    graph.add_arc(2, invalid_id, 0, 15, Label());
+
+    graph.nodes[0].rank = 2;
+    graph.nodes[1].rank = 1;
+    graph.nodes[2].rank = 3;
+
+    DCHQueue queue(graph.nodes.size()*100+64);
+    queue.push(DCHQueueEntry{graph.nodes[2].arcs[0], CHMArc(), CHMArc(), true}, graph); // arc 2->0
+    queue.push(DCHQueueEntry{graph.nodes[0].arcs[0], CHMArc(), CHMArc(), true}, graph); // arc 0->1
+    queue.push(DCHQueueEntry{graph.nodes[0].arcs[1], CHMArc(), CHMArc(), true}, graph); // arc 0->2
+
+    auto e1 = queue.pop();
+    EXPECT_EQ(e1.arc.from, 0);
+    EXPECT_EQ(e1.arc.to, 1);
+
+    auto e2 = queue.pop();
+    EXPECT_EQ(e2.arc.from, 2);
+    EXPECT_EQ(e2.arc.to, 0);
+
+    auto e3 = queue.pop();
+    EXPECT_EQ(e3.arc.from, 0);
+    EXPECT_EQ(e3.arc.to, 2);
+}
+
 TEST(DCHGraph, garbage_collection) {
     unsigned graph_size = 5;
     DCHGraph graph = DCHGraph();
