@@ -598,24 +598,7 @@ TEST(CHM, dch_on_real_road_network) {
 
         std::cout << "Apply random changes" << std::endl;
 
-        // Apply random changes
-        for (unsigned i = 0; i < node_count; i = i + 10) {
-            unsigned from = rand_r(&seed) % node_count;
-            if(dch.nodes[from].arcs.empty()) continue;
-            unsigned arc = rand_r(&seed) % dch.nodes[from].arcs.size();
-            if(dch.nodes[from].arcs[arc].mid_node != invalid_id) continue;
-            if(dch.nodes[from].arcs[arc].weight < 2) continue;  
-
-            unsigned old_weight = dch.nodes[from].arcs[arc].weight;
-            unsigned weight = rand_r(&seed) % 600 + 1; // random new weight
-
-            if(weight < old_weight) {
-                dch.DCHMinus(dch.nodes[from].arcs[arc].get_pos(), weight);
-            } else if(weight > old_weight) {
-                dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), weight);
-            }
-        }
-
+        
         for (unsigned i = 1; i < node_count; i = i + 10) {
             unsigned from = rand_r(&seed) % node_count;
             if(dch.nodes[from].arcs.empty()) continue;
@@ -624,13 +607,10 @@ TEST(CHM, dch_on_real_road_network) {
             if(dch.nodes[from].arcs[arc].weight < 2) continue;  
 
             Label new_label = profiles[rand_r(&seed) % 4];
+            unsigned new_weight = (rand_r(&seed) % 500) + 1;
             if(new_label.get_label() == dch.nodes[from].arcs[arc].label.get_label()) continue;
 
-            CHMArc before = dch.nodes[from].arcs[arc];
-            dch.DCHPlus(dch.nodes[from].arcs[arc].get_pos(), inf_weight);
-            dch.nodes[from].arcs[arc].label = new_label;
-            CHMArc new_arc = dch.add_arc(dch.nodes[from].arcs[arc]);
-            dch.DCHMinus(new_arc.get_pos(), before.weight);
+            dch.UpdateArc(dch.nodes[from].arcs[arc].get_pos(), new_weight, new_label);
         }
 
         std::cout << "Running requests..." << std::endl;
@@ -861,7 +841,6 @@ TEST(CHM, partial_rebuild) {
     }
 }
 
-
 TEST(CHM, partial_rebuild_mod) {
     return;
     unsigned runs = 70000;
@@ -917,7 +896,7 @@ TEST(CHM, partial_rebuild_full) {
         
         print_graph_to_file(dch, "generated/debug_graph_before.txt");
 
-        if(run == 10926){
+        if(run == 58260){
             std::cout << "Debug run" << std::endl;
         }
 
@@ -935,8 +914,11 @@ TEST(CHM, partial_rebuild_full) {
             Label new_label = Label(rand_r(&seed) % 8);
             CHMArc after = dch.UpdateArc(before.get_pos(), new_weight, new_label);
 
+            changes.push_back({before, after});
+
             EXPECT_EQ(after.weight, new_weight);
             EXPECT_EQ(after.label.get_label(), new_label.get_label());
+            break;
         }
 
         print_graph_to_file(dch, "generated/debug_graph_after.txt");

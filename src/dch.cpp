@@ -687,7 +687,7 @@ void DCHGraph::DCHPlusMod(CHMArcPos e_o_pos, unsigned w_n) {
     update_weight(out_arc, w_n, true);
 
     unsigned rebuild_until_rank = std::max(nodes[from].rank, nodes[out_arc.to].rank);
-    DCHQueue queue(nodes.size()*100+64);
+    DCHQueue queue;
     
     CHLRRebuildCallback callback = [&](CHLRArc arc, unsigned from, unsigned to) {
         bool exists = false;

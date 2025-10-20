@@ -327,25 +327,19 @@ CHLRArc& CHLRGraph::get_reverse_arc(CHLRArc &arc, unsigned start_node) {
 
 bool CHLRGraph::add_or_reduce_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label) {
     for (auto &arc : nodes[from].out_arcs) {
-        if (arc.other_node == to) {
+        if (arc.other_node == to && arc.label == label) {
             if (arc.weight > weight) {
-                if(label.is_subset_of(arc.label)) {
-                    // New arc is shorter and has fewer restrictions, replace existing shortcut
-                    auto& reversed_arc = get_reverse_arc(arc, from);
+                // New arc is shorter and has fewer restrictions, replace existing shortcut
+                auto& reversed_arc = get_reverse_arc(arc, from);
 
-                    arc.weight = weight;
-                    arc.label = label;
+                arc.weight = weight;
+                arc.label = label;
 
-                    reversed_arc.weight = weight;
-                    reversed_arc.label = label;
-                    return true;
-                }
-                // new arc is shorter but has more restrictions, continue search or add new arc
+                reversed_arc.weight = weight;
+                reversed_arc.label = label;
+                return true;
             } else {
-                if(arc.label.is_subset_of(label)) {
-                    // Existing arc is shorter and has fewer restrictions, do not add new shortcut
-                    return false;
-                }
+                return false;
             }
         }
     }
