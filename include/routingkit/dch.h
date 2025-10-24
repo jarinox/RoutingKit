@@ -5,6 +5,7 @@
 #include <routingkit/chm.h>
 #include <routingkit/label.h>
 #include <routingkit/geo_dist.h>
+#include <bits/stdc++.h>
 
 struct DCHArcPos {
     unsigned node_index;
@@ -23,12 +24,14 @@ public:
 
     CHMArc add_arc(CHMArc arc);
     CHMArc add_arc(unsigned from, unsigned mid_node, unsigned to, unsigned weight, Label label);
+    CHMArc add_or_reduce_arc(CHMArc arc);
     CHMArc& get(CHMArcPos pos);
     CHMArc& ref(CHMArc arc);
 
     std::vector<std::pair<CHMArc, CHMArc>> SCPPlus(CHMArc p1);
     std::vector<std::pair<CHMArc, CHMArc>> SCPMinus(CHMArc child);
     unsigned compute_weight(CHMArc arc);
+    void compute_weight_midnode(CHMArc arc);
     Label compute_label(CHMArc arc);
 
     void DCHPlus(CHMArcPos e_o_pos, unsigned w_n);
@@ -44,7 +47,8 @@ public:
     std::vector<CHMArc> Ne(CHMArc arc);
     CHMArc Np(CHMArc p1, CHMArc p2);
 
-    void update_weight(CHMArc arc, unsigned weight);
+    std::pair<CHMArc&, CHMArc&> twins(CHMArc arc);
+    void update_weight(CHMArc arc, unsigned weight, bool force = false);
     void invalidate(CHMArc arc);
 
     CHMArc CMS(CHMArcPos e_o, unsigned w_n, Label l_n);
@@ -53,6 +57,9 @@ public:
     std::vector<CHMArc> in_arcs(unsigned node) {
         return nodes[node].in_arcs;
     }
+
+    void DCHPlusMod(CHMArcPos e_o_pos, unsigned w_n);
+    CHMArc UpdateArc(CHMArcPos e_o_pos, unsigned w_n, Label l_n);
 };
 
 struct DCHQueueEntry {
@@ -63,11 +70,14 @@ struct DCHQueueEntry {
 };
 
 class DCHQueue {
-    MinIDQueue queue;
+    std::priority_queue<std::pair<int, int>,
+        std::vector<std::pair<int, int>>,
+        std::greater<std::pair<int, int>>> queue;
     std::vector<std::queue<DCHQueueEntry>> unsigned_to_arc;
+    std::unordered_map<unsigned, unsigned> arc_priority_to_index;
     std::set<CHMArc> is_in_queue; // another option would be to uniquely identify by CHMArcPos
 public:
-    DCHQueue(unsigned size) : queue(size), unsigned_to_arc(size) {}
+    DCHQueue(unsigned size = 0) {}
 
     bool empty() const {
         return queue.empty();
